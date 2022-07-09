@@ -38,6 +38,27 @@ spec todo:
 
 local xmls = {}
 
+-- Error reporting
+-- ===============
+
+function xmls.position(str, pos)
+	local line, lastpos = 0
+	local lastline = 1
+	for linestart in string.gmatch(str, "()[^\n]*") do
+		if pos >= linestart then
+			lastpos = linestart
+			line = line + 1
+		else
+			return line, pos - lastpos + 1
+		end
+	end
+	return pos .. " (" .. line .. ", " .. pos - lastpos + 1 .. ")"
+end
+
+function xmls.error(reason, str, pos)
+	return error(debug.traceback(reason .. " at " .. xmls.position(str, pos), 2), 2)
+end
+
 -- Markup
 -- Use at "<" or EOF
 -- Transition to STag, ETag, CDATA, Comment, PI or MalformedTag
@@ -83,7 +104,7 @@ end
 function xmls.stag(str, pos)
 	pos = str:match("^%w+()", pos)
 	if pos == nil then
-		error("Invalid tag name at " .. pos, 2)
+		return xmls.error("Invalid tag name", str, pos)
 	end
 	return str:match("^[ \t\r\n]*()", pos), xmls.attr, pos - 1
 end
@@ -95,11 +116,11 @@ end
 function xmls.etag(str, pos)
 	pos = str:match("^%w+()", pos)
 	if pos == nil then
-		error("Invalid etag name at " .. pos, 2)
+		return xmls.error("Invalid etag name", str, pos)
 		
 	elseif str:sub(pos, pos) ~= ">" then
 		-- todo: is a trailing space in an etag valid?
-		error("Malformed etag at " .. pos, 2) -- incorrect position
+		return xmls.error("Malformed etag", str, pos) -- incorrect position
 	end
 	return pos + 1, xmls.text, pos - 1
 end
@@ -116,7 +137,7 @@ function xmls.cdata(str, pos)
 		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
-		error("Unterminated CDATA section at " .. pos, 2)
+		return xmls.error("Unterminated CDATA section", str, pos)
 		-- pos = #str
 		-- return pos, xmls.text, pos
 	end
@@ -132,7 +153,7 @@ function xmls.comment(str, pos)
 		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
-		error("Unterminated comment at " .. pos, 2)
+		return xmls.error("Unterminated comment", str, pos)
 		-- pos = #str
 		-- return pos, xmls.text, pos
 	end
@@ -148,7 +169,7 @@ function xmls.pi(str, pos)
 		return pos2, xmls.text, pos2 - 3
 	else
 		-- unterminated
-		error("Unterminated processing instruction at " .. pos, 2)
+		return xmls.error("Unterminated processing instruction", str, pos)
 		-- pos = #str
 		-- return pos, xmls.text, pos
 	end
@@ -160,7 +181,7 @@ end
 -- Return nil
 function xmls.malformed(str, pos)
 	-- zip to after >
-	error("Malformed tag at " .. pos, 2)
+	return xmls.error("Malformed tag", str, pos)
 end
 
 -- Attribute name or end of tag (end of attribute list).
@@ -171,11 +192,11 @@ function xmls.attr(str, pos)
 	if str:match("^[^/>]", pos) then
 		local nameend = str:match("^%w+()", pos)
 		if nameend == nil then
-			error("Invalid attribute name at " .. pos, 2)
+			return xmls.error("Invalid attribute name", str, pos)
 		end
 		pos = str:match("^[ \t\r\n]*()", nameend)
 		if str:sub(pos, pos) ~= "=" then
-			error("Malformed attribute at " .. pos, 2)
+			return xmls.error("Malformed attribute", str, pos)
 		end
 		pos = str:match("^[ \t\r\n]*()", pos + 1)
 		return pos, xmls.value, nameend - 1
@@ -192,12 +213,12 @@ function xmls.value(str, pos)
 	if str:sub(pos, pos) == '"' then
 		pos = str:match("^[^\"]*()", pos + 1)
 		if str:sub(pos, pos) ~= '"' then
-			error("Unclosed attribute value at " .. pos, 2)
+			return xmls.error("Unclosed attribute value", str, pos)
 		end
 	else
 		pos = str:match("^[^']*()", pos + 1)
 		if str:sub(pos, pos) ~= "'" then
-			error("Unclosed attribute value at " .. pos, 2)
+			return xmls.error("Unclosed attribute value", str, pos)
 		end
 	end
 	return str:match("^[ \t\r\n]*()", pos + 1), xmls.attr, pos - 1
@@ -218,10 +239,10 @@ function xmls.tagend(str, pos)
 		if str:sub(pos, pos) == ">" then
 			return pos + 1, xmls.text, false
 		else
-			error("Malformed tag end at " .. pos, 2)
+			return xmls.error("Malformed tag end", str, pos)
 		end
 	else
-		error("Malformed tag end at " .. pos, 2)
+		return xmls.error("Malformed tag end", str, pos)
 	end
 end
 
@@ -238,7 +259,7 @@ end
 -- Do not use
 -- Throws an error, shouldn't have read any further
 function xmls.eof(str, pos)
-	error("Exceeding end of file", 2)
+	return xmls.error("Exceeding end of file", str, pos)
 end
 
 ---------------------------------------------
