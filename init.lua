@@ -115,7 +115,7 @@ function xmls.stag(str, pos)
 	if pos == nil then
 		error("Invalid tag name at " .. pos)
 	end
-	return xmls.attr, str:match("^[ \t\r\n]*()", pos), pos
+	return xmls.attr, str:match("^[ \t\r\n]*()", pos), pos - 1
 end
 
 -- Name of ending tag.
@@ -131,7 +131,7 @@ function xmls.etag(str, pos)
 		-- todo: is a trailing space in an etag valid?
 		error("Malformed etag at " .. pos) -- incorrect position
 	end
-	return xmls.text, pos + 1, pos
+	return xmls.text, pos + 1, pos - 1
 end
 
 -- Comment.
@@ -141,7 +141,7 @@ end
 function xmls.comment(str, pos)
 	local pos2 = str:match("%-%->()", pos)
 	if pos2 then
-		return xmls.text, pos2, pos2 - 3
+		return xmls.text, pos2, pos2 - 4
 	else
 		-- unterminated
 		error("Unterminated comment at " .. pos)
@@ -157,7 +157,7 @@ end
 function xmls.pi(str, pos)
 	local pos2 = str:match("?>()", pos)
 	if pos2 then
-		return xmls.text, pos2, pos2 - 2
+		return xmls.text, pos2, pos2 - 3
 	else
 		-- unterminated
 		error("Unterminated processing instruction at " .. pos)
@@ -178,7 +178,7 @@ end
 -- Attribute name or end of tag (end of attribute list).
 -- The characters /, > or any name character
 -- Transition to Value or TagEnd
--- Return end of name
+-- Return end of name if Value or nil if TagEnd
 function xmls.attr(str, pos)
 	if str:match("^[^/>]", pos) then
 		local nameend = str:match("^%w+()", pos)
@@ -190,7 +190,7 @@ function xmls.attr(str, pos)
 			error("Malformed attribute at " .. pos)
 		end
 		pos = str:match("^[ \t\r\n]*()", pos + 1)
-		return xmls.value, pos, nameend
+		return xmls.value, pos, nameend - 1
 	else
 		return xmls.tagend, pos, nil
 	end
@@ -212,7 +212,7 @@ function xmls.value(str, pos)
 			error("Unclosed attribute value at " .. pos)
 		end
 	end
-	return xmls.attr, str:match("^[ \t\r\n]*()", pos + 1), pos
+	return xmls.attr, str:match("^[ \t\r\n]*()", pos + 1), pos - 1
 end
 
 -- End of tag
@@ -228,11 +228,12 @@ function xmls.tagend(str, pos)
 end
 
 -- Plain text
+-- Anything
 -- Transition to Tag
--- Return nil. pos is end of content
+-- Return end of content
 function xmls.text(str, pos)
 	pos = str:match("[^<]*()", pos)
-	return xmls.tag, pos
+	return xmls.tag, pos, pos - 1
 end
 
 -- End of file
