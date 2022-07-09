@@ -320,6 +320,25 @@ function xmls.skipContent(str, pos)
 	return pos, state
 end
 
+-- Go to and consume next STag or ETag
+-- Use at Text
+-- Transition to Attr and return pos, xmls.attr, name
+-- Transition to Text and return pos, xmls.text, name
+function xmls.tags(str, pos)
+	local state = xmls.text
+	while true do
+		repeat
+			pos, state = state(str, pos)
+		until state == xmls.markup
+		pos, state = state(str, pos)
+		if state == xmls.stag or state == xmls.etag then
+			local posA, posB = pos
+			pos, state, posB = state(str, pos)
+			return pos, state, str:sub(posA, posB)
+		end
+	end
+end
+
 -- testing
 
 if false then
