@@ -1,63 +1,26 @@
---[[
-<Object type="0x01ff" id="Sheep">asdf<foo/></Object>
-<!--
-<
- Object 
-        type="
-		      0x01ff" 
-			          id="
-						  Sheep"
-								>
-								 asdf
-								     <
-									  foo
-									     />
-										   <
-										    /Object>
-Text
-Tag
- STag
-		Attr name
-			  Attr value
-					  Attr name
-						  Attr value
-								Attr name
-								Tag end, opening
-								 Text
-								     Tag
-									  STag
-									     Attr name
-										 Tag end, self-closing
-										   Text
-										   Tag
-										    ETag
-											        Text
-													Tag
-													EOF
--->
-
-</Object>
-<!--
-</
-  Object>
-ETag
-  Name
--->
-
-<Object foo="bar"/>
-<!--
-<
- Object 
-        foo="
-		     bar"
-			     />
-Tag
- STag
-		Attr name
-			 Attr value
-				 End of attributes, self-closing
--->
-]]
+-- <Object type="0x01ff" id="Sheep">asdf<foo/></Object>
+-- <       type="        id="      >    <   /> /Object>
+--  Object       0x01ff"     Sheep" asdf foo  <
+-- text
+-- markup
+--  stag
+--         attr
+--               value
+--                       attr
+--                           value
+--                                 attr
+--                                 tagend (opening)
+--                                  text
+--                                      markup
+--                                       stag
+--                                          attr
+--                                          tagend (self-closing)
+--                                            text
+--                                            markup
+--                                             etag
+--                                                     text
+--                                                     markup
+--                                                     eof
 
 --[[
 
