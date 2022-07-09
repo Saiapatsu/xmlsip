@@ -378,31 +378,4 @@ while true do
 end
 ]]
 
--- testing
-
-if false then
-
-local back = {}
-for k,v in pairs(xmls) do back[v] = k end
-
--- local str = "<foo bar='123'></foo>"
-local file = assert(io.open("equip.xml"))
-local str = file:read("*a")
-file:close()
-
-local op = xmls.text
-local pos = 1
-local ret
-
-print()
-while true do
-	local a, b = back[op], pos
-	local ret
-	pos, op, ret = op(str, pos)
-	print(a, b, ret)
-	if op == xmls.eof then return end
-end
-
-end
-
 return xmls
