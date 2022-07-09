@@ -270,11 +270,19 @@ end
 print(xmls.tagend(str, pos))
 ]]
 
+-- Skip attributes and content of a tag
+-- Use at Attr
+-- Transition to Text
+function xmls.skip(str, pos)
+	pos = xmls.skipAttrs(str, pos)
+	return xmls.skipContent(str, pos)
+end
+
 -- Skip attributes of a tag
 -- Use at Attr
 -- Transition to TagEnd
-function xmls.wasteAttrs(str, pos)
-	return str:match("^[^/>]*()", pos)
+function xmls.skipAttrs(str, pos)
+	return str:match("^[^/>]*()", pos), xmls.tagend
 end
 --[[ Example:
 local str = '<test key="value" key="value">'
@@ -282,6 +290,35 @@ local pos = 7
 pos = xmls.wasteAttrs(str, pos)
 print(xmls.tagend(str, pos))
 ]]
+
+-- Skip the content of a tag.
+-- Use at TagEnd
+-- Transition to Text
+function xmls.skipContent(str, pos)
+	local pos, state, value = pos, xmls.tagend
+	local level = 0
+	repeat
+		if state == xmls.attrs then
+			-- optional, do not bother with parsing all attributes
+			state = xmls.skipAttrs
+			pos, state, value = state(str, pos)
+		elseif state == xmls.tagend then
+			-- increase level if tag is an opening tag
+			pos, state, value = state(str, pos)
+			if value == true then
+				level = level + 1
+			end
+		elseif state == xmls.etag then
+			-- decrease level if tag is a closing tag
+			level = level - 1
+			pos, state, value = state(str, pos)
+		else
+			-- skip everything else
+			pos, state, value = state(str, pos)
+		end
+	until level == 0
+	return pos, state
+end
 
 -- testing
 
