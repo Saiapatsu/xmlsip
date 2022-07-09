@@ -254,9 +254,9 @@ function xmls.tagend(str, pos)
 end
 
 -- Plain text
--- Use after >
--- Transition to Tag
--- Return end of content
+-- Use outside of markup
+-- Transition to Markup
+-- Return end of text
 function xmls.text(str, pos)
 	pos = str:match("[^<]*()", pos)
 	return pos, xmls.markup, pos - 1
@@ -320,33 +320,49 @@ pos = xmls.wasteAttrs(str, pos)
 print(xmls.tagend(str, pos))
 ]]
 
--- Skip the content of a tag.
+-- Skip the content and end tag of a tag
 -- Use at TagEnd
 -- Transition to Text
+-- Return value is not useful
 function xmls.skipContent(str, pos)
-	local pos, state, value = pos, xmls.tagend
-	local level = 0
-	repeat
-		if state == xmls.attrs then
-			-- optional, do not bother with parsing all attributes
-			state = xmls.skipAttrs
-			pos, state, value = state(str, pos)
-		elseif state == xmls.tagend then
-			-- increase level if tag is an opening tag
-			pos, state, value = state(str, pos)
+	local pos, state, value = xmls.tagend(str, pos) --> text
+	if value == true then
+		return xmls.skipInner(str, pos) --> text
+	else
+		return pos, state, nil
+	end
+end
+
+-- Skip the content and end tag of a tag
+-- Use at Text after TagEnd
+-- Transition to Text
+-- Return end of content just before the end tag
+function xmls.skipInner(str, pos)
+	local level, state, value = 1, xmls.text
+	local posB
+	repeat --> text
+		pos, state = state(str, pos) --> markup
+		posB = pos
+		pos, state = state(str, pos) --> ?
+		if state == xmls.stag then --> stag
+			pos, state = state(str, pos) --> attr
+			pos, state = xmls.skipAttrs(str, pos) --> tagend
+			pos, state, value = state(str, pos) --> text
 			if value == true then
 				level = level + 1
 			end
-		elseif state == xmls.etag then
-			-- decrease level if tag is a closing tag
+			
+		elseif state == xmls.etag then --> etag
 			level = level - 1
-			pos, state, value = state(str, pos)
-		else
-			-- skip everything else
-			pos, state, value = state(str, pos)
+			pos, state = state(str, pos) --> text
+			
+		else --> ?
+			repeat
+				pos, state = state(str, pos)
+			until state == xmls.text --> text
 		end
 	until level == 0
-	return pos, state
+	return pos, state, posB - 1
 end
 
 -- Go to and consume next STag or ETag
