@@ -224,12 +224,12 @@ end
 -- Return end of value
 function xmls.value(str, pos)
 	if str:sub(pos, pos) == '"' then
-		pos = str:match("[^\"]*()", pos + 1)
+		pos = str:match("^[^\"]*()", pos + 1)
 		if str:sub(pos, pos) ~= '"' then
 			error("Unclosed attribute value at " .. pos)
 		end
 	else
-		pos = str:match("[^']*()", pos + 1)
+		pos = str:match("^[^']*()", pos + 1)
 		if str:sub(pos, pos) ~= "'" then
 			error("Unclosed attribute value at " .. pos)
 		end
@@ -242,10 +242,20 @@ end
 -- Transition to Text
 -- Return true if opening tag, false if self-closing
 function xmls.tagend(str, pos)
-	if str:sub(pos, pos) ~= "/" then
+	-- todo: figure out when this could possibly be called if it isn't / or >
+	-- xmls.attr will defer to this if it runs into the end of file
+	local sigil = str:sub(pos, pos)
+	if sigil == ">" then
 		return xmls.text, pos + 1, true
+	elseif sigil == "/" then
+		pos = pos + 1
+		if str:sub(pos, pos) == ">" then
+			return xmls.text, pos + 1, false
+		else
+			error("Malformed tag end at " .. pos)
+		end
 	else
-		return xmls.text, pos + 2, false
+		error("Malformed tag end at " .. pos)
 	end
 end
 
