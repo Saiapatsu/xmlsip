@@ -9,6 +9,7 @@ code todo:
 spec todo:
 	https://www.w3.org/TR/xml/
 	add a variant of Text that goes up to entities, leaving it up to the user to expand them?
+	implement entities in attribute values
 	add XML preamble support, if only to skip it entirely
 	parse names correctly per https://www.w3.org/TR/xml/#charsets
 
@@ -66,10 +67,11 @@ end
 
 -- Markup
 -- Use at "<" or EOF
--- Transition to STag, ETag, CDATA, Comment, PI or MalformedTag
+-- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return nil
 function xmls.markup(str, pos)
 	if pos > #str then
+		-- end of input
 		return pos, xmls.eof, nil
 	end
 	
@@ -95,7 +97,7 @@ function xmls.markup(str, pos)
 		end
 		
 	elseif sigil == "?" then -- <?
-		return pos + 1, xmls.pi, nil
+		return pos + 2, xmls.pi, nil
 		
 	else -- <\
 		return pos + 1, xmls.malformed, nil
