@@ -59,6 +59,9 @@ function xmls.error(reason, str, pos)
 	return error(debug.traceback(reason .. " at " .. xmls.position(str, pos), 2), 2)
 end
 
+-- Tier 1
+-- ======
+
 -- Markup
 -- Use at "<" or EOF
 -- Transition to STag, ETag, CDATA, Comment, PI or MalformedTag
@@ -262,7 +265,8 @@ function xmls.eof(str, pos)
 	return xmls.error("Exceeding end of file", str, pos)
 end
 
----------------------------------------------
+-- Tier 2
+-- ======
 
 -- Get one attribute key-value pair, iterable
 -- Use at Attr
