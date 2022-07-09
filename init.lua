@@ -78,35 +78,35 @@ local xmls = {}
 -- Return nil
 function xmls.markup(str, pos)
 	if pos > #str then
-		return xmls.eof, pos
+		return pos, xmls.eof, nil
 	end
 	
 	local sigil = str:sub(pos + 1, pos + 1)
 	
 	if sigil:match("%w") then -- <tag
-		return xmls.stag, pos + 1
+		return pos + 1, xmls.stag, nil
 		
 	elseif sigil == "/" then -- </
 		if str:sub(pos + 2, pos + 2):match("%w") then -- </tag
-			return xmls.etag, pos + 2
+			return pos + 2, xmls.etag, nil
 		else -- </>
-			return xmls.malformed, pos
+			return pos, xmls.malformed, nil
 		end
 		
 	elseif sigil == "!" then -- <!
 		if str:sub(pos + 2, pos + 3) == "--" then -- <!--
-			return xmls.comment, pos + 4
+			return pos + 4, xmls.comment, nil
 		elseif str:sub(pos + 2, pos + 8) == "[CDATA[" then -- <![CDATA[
-			return xmls.cdata, pos + 9
+			return pos + 9, xmls.cdata, nil
 		else -- <!asdf
-			return xmls.malformed, pos
+			return pos, xmls.malformed, nil
 		end
 		
 	elseif sigil == "?" then -- <?
-		return xmls.pi, pos + 1
+		return pos + 1, xmls.pi, nil
 		
 	else -- <\
-		return xmls.malformed, pos
+		return pos, xmls.malformed, nil
 	end
 end
 
@@ -119,7 +119,7 @@ function xmls.stag(str, pos)
 	if pos == nil then
 		error("Invalid tag name at " .. pos)
 	end
-	return xmls.attr, str:match("^[ \t\r\n]*()", pos), pos - 1
+	return str:match("^[ \t\r\n]*()", pos), xmls.attr, pos - 1
 end
 
 -- Name of ending tag.
@@ -135,7 +135,7 @@ function xmls.etag(str, pos)
 		-- todo: is a trailing space in an etag valid?
 		error("Malformed etag at " .. pos) -- incorrect position
 	end
-	return xmls.text, pos + 1, pos - 1
+	return pos + 1, xmls.text, pos - 1
 end
 
 -- CDATA section
@@ -147,12 +147,12 @@ function xmls.cdata(str, pos)
 	-- because it is actually text data
 	local pos2 = str:match("%]%]>()", pos)
 	if pos2 then
-		return xmls.text, pos2, pos2 - 4
+		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
 		error("Unterminated CDATA section at " .. pos)
 		-- pos = #str
-		-- return xmls.text, pos, pos
+		-- return pos, xmls.text, pos
 	end
 end
 
@@ -163,12 +163,12 @@ end
 function xmls.comment(str, pos)
 	local pos2 = str:match("%-%->()", pos)
 	if pos2 then
-		return xmls.text, pos2, pos2 - 4
+		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
 		error("Unterminated comment at " .. pos)
 		-- pos = #str
-		-- return xmls.text, pos, pos
+		-- return pos, xmls.text, pos
 	end
 end
 
@@ -179,12 +179,12 @@ end
 function xmls.pi(str, pos)
 	local pos2 = str:match("?>()", pos)
 	if pos2 then
-		return xmls.text, pos2, pos2 - 3
+		return pos2, xmls.text, pos2 - 3
 	else
 		-- unterminated
 		error("Unterminated processing instruction at " .. pos)
 		-- pos = #str
-		-- return xmls.text, pos, pos
+		-- return pos, xmls.text, pos
 	end
 end
 
@@ -212,9 +212,9 @@ function xmls.attr(str, pos)
 			error("Malformed attribute at " .. pos)
 		end
 		pos = str:match("^[ \t\r\n]*()", pos + 1)
-		return xmls.value, pos, nameend - 1
+		return pos, xmls.value, nameend - 1
 	else
-		return xmls.tagend, pos, nil
+		return pos, xmls.tagend, nil
 	end
 end
 
@@ -234,7 +234,7 @@ function xmls.value(str, pos)
 			error("Unclosed attribute value at " .. pos)
 		end
 	end
-	return xmls.attr, str:match("^[ \t\r\n]*()", pos + 1), pos - 1
+	return str:match("^[ \t\r\n]*()", pos + 1), xmls.attr, pos - 1
 end
 
 -- End of tag
@@ -246,11 +246,11 @@ function xmls.tagend(str, pos)
 	-- xmls.attr will defer to this if it runs into the end of file
 	local sigil = str:sub(pos, pos)
 	if sigil == ">" then
-		return xmls.text, pos + 1, true
+		return pos + 1, xmls.text, true
 	elseif sigil == "/" then
 		pos = pos + 1
 		if str:sub(pos, pos) == ">" then
-			return xmls.text, pos + 1, false
+			return pos + 1, xmls.text, false
 		else
 			error("Malformed tag end at " .. pos)
 		end
@@ -265,13 +265,13 @@ end
 -- Return end of content
 function xmls.text(str, pos)
 	pos = str:match("[^<]*()", pos)
-	return xmls.markup, pos, pos - 1
+	return pos, xmls.markup, pos - 1
 end
 
 -- End of file
 -- Error, shouldn't have read any further
 function xmls.eof(str, pos)
-	return error("Exceeding end of file")
+	error("Exceeding end of file")
 end
 
 ---------------------------------------------
@@ -282,11 +282,11 @@ end
 function xmls.attrs(str, pos)
 	local state, posB
 	local posA = pos
-	state, pos, posB = xmls.attr(str, pos)
+	pos, state, posB = xmls.attr(str, pos)
 	if state == xmls.value then
 		local key = str:sub(posA, posB)
 		posA = pos + 1 -- skip the quote
-		state, pos, posB = xmls.value(str, pos)
+		pos, state, posB = xmls.value(str, pos)
 		return pos, key, str:sub(posA, posB)
 	else
 		return nil
@@ -335,7 +335,7 @@ print()
 while true do
 	local a, b = back[op], pos
 	local ret
-	op, pos, ret = op(str, pos)
+	pos, op, ret = op(str, pos)
 	print(a, b, ret)
 	if op == xmls.eof then return end
 end
