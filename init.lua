@@ -39,7 +39,7 @@ spec todo:
 local xmls = {}
 
 -- Markup
--- The character < or end of file
+-- Use at "<" or EOF
 -- Transition to STag, ETag, CDATA, Comment, PI or MalformedTag
 -- Return nil
 function xmls.markup(str, pos)
@@ -56,7 +56,7 @@ function xmls.markup(str, pos)
 		if str:sub(pos + 2, pos + 2):match("%w") then -- </tag
 			return pos + 2, xmls.etag, nil
 		else -- </>
-			return pos, xmls.malformed, nil
+			return pos + 1, xmls.malformed, nil
 		end
 		
 	elseif sigil == "!" then -- <!
@@ -65,19 +65,19 @@ function xmls.markup(str, pos)
 		elseif str:sub(pos + 2, pos + 8) == "[CDATA[" then -- <![CDATA[
 			return pos + 9, xmls.cdata, nil
 		else -- <!asdf
-			return pos, xmls.malformed, nil
+			return pos + 1, xmls.malformed, nil
 		end
 		
 	elseif sigil == "?" then -- <?
 		return pos + 1, xmls.pi, nil
 		
 	else -- <\
-		return pos, xmls.malformed, nil
+		return pos + 1, xmls.malformed, nil
 	end
 end
 
--- Name of starting tag.
--- Any name character
+-- Name of starting tag
+-- Use at name character after "<"
 -- Transition to Attr
 -- Return end of name
 function xmls.stag(str, pos)
@@ -88,8 +88,8 @@ function xmls.stag(str, pos)
 	return str:match("^[ \t\r\n]*()", pos), xmls.attr, pos - 1
 end
 
--- Name of ending tag.
--- Any name character
+-- Name of ending tag
+-- Use at name character after "</"
 -- Transition to Text
 -- Return end of name
 function xmls.etag(str, pos)
@@ -104,8 +104,8 @@ function xmls.etag(str, pos)
 	return pos + 1, xmls.text, pos - 1
 end
 
--- CDATA section
--- Anything
+-- Content of CDATA section
+-- Use after "<![CDATA["
 -- Transition to Text
 -- Return end of content
 function xmls.cdata(str, pos)
@@ -122,8 +122,8 @@ function xmls.cdata(str, pos)
 	end
 end
 
--- Comment.
--- Anything
+-- Content of comment
+-- Use after "<!--"
 -- Transition to Text
 -- Return end of content
 function xmls.comment(str, pos)
@@ -138,8 +138,8 @@ function xmls.comment(str, pos)
 	end
 end
 
--- Processing instruction.
--- Anything
+-- Content of processing instruction
+-- Use after "<?"
 -- Transition to Text
 -- Return end of content
 function xmls.pi(str, pos)
@@ -154,8 +154,8 @@ function xmls.pi(str, pos)
 	end
 end
 
--- Obviously malformed tag.
--- The character <
+-- Content of an obviously malformed tag
+-- Use after "<"
 -- Transition to Text
 -- Return nil
 function xmls.malformed(str, pos)
@@ -164,9 +164,9 @@ function xmls.malformed(str, pos)
 end
 
 -- Attribute name or end of tag (end of attribute list).
--- The characters /, > or any name character
--- Transition to Value or TagEnd
--- Return end of name if Value or nil if TagEnd
+-- Use at attribute name or ">" or "/>"
+-- Transition to Value and return end of name
+-- Transition to TagEnd and return nil
 function xmls.attr(str, pos)
 	if str:match("^[^/>]", pos) then
 		local nameend = str:match("^%w+()", pos)
@@ -184,8 +184,8 @@ function xmls.attr(str, pos)
 	end
 end
 
--- Attribute value.
--- Anything
+-- Attribute value
+-- Use at "'" or '"'
 -- Transition to Attr
 -- Return end of value
 function xmls.value(str, pos)
@@ -204,7 +204,7 @@ function xmls.value(str, pos)
 end
 
 -- End of tag
--- The characters / or >
+-- Use at ">" or "/>"
 -- Transition to Text
 -- Return true if opening tag, false if self-closing
 function xmls.tagend(str, pos)
@@ -226,7 +226,7 @@ function xmls.tagend(str, pos)
 end
 
 -- Plain text
--- Anything
+-- Use after >
 -- Transition to Tag
 -- Return end of content
 function xmls.text(str, pos)
@@ -235,16 +235,18 @@ function xmls.text(str, pos)
 end
 
 -- End of file
--- Error, shouldn't have read any further
+-- Do not use
+-- Throws an error, shouldn't have read any further
 function xmls.eof(str, pos)
 	error("Exceeding end of file")
 end
 
 ---------------------------------------------
 
--- Iterate over attribute name-value pairs.
--- Use after STag
--- Must follow up with TagEnd
+-- Get one attribute key-value pair, iterable
+-- Use at Attr
+-- Transition to Attr and return pos, key, value
+-- Transition to TagEnd and return nil
 function xmls.attrs(str, pos)
 	local state, posB
 	local posA = pos
@@ -268,9 +270,9 @@ end
 print(xmls.tagend(str, pos))
 ]]
 
--- Skip attributes.
--- Use after STag
--- Must follow up with TagEnd
+-- Skip attributes of a tag
+-- Use at Attr
+-- Transition to TagEnd
 function xmls.wasteAttrs(str, pos)
 	return str:match("^[^/>]*()", pos)
 end
