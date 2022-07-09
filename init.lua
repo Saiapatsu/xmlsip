@@ -363,6 +363,20 @@ function xmls.tags(str, pos)
 		end
 	end
 end
+--[[ Example:
+local str = "<root><testA key='value'>foo<!--test--><testing></testing></testA><testB/></root>"
+local pos, state, value = 7, xmls.text
+while true do
+	pos, state, value = xmls.tags(str, pos)
+	if state ~= xmls.attr then break end
+	print(value)
+	for i, k, v in xmls.attrs, str, pos do
+		pos = i
+		print("", k, v)
+	end
+	pos = xmls.skipContent(str, pos)
+end
+]]
 
 -- testing
 
