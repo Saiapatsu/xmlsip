@@ -1,3 +1,19 @@
+--[[
+-- xmls2
+-- minimal XML parsing utilities in Lua
+
+code todo:
+	make parsing more bulletproof/more error-happy
+	look over all errors and ensure the positions are right
+
+spec todo:
+	https://www.w3.org/TR/xml/
+	add a variant of Text that goes up to entities, leaving it up to the user to expand them?
+	add XML preamble support, if only to skip it entirely
+	parse names correctly per https://www.w3.org/TR/xml/#charsets
+
+]]
+
 -- <Object type="0x01ff" id="Sheep">asdf<foo/></Object>
 -- <       type="        id="      >    <   /> /Object>
 --  Object       0x01ff"     Sheep" asdf foo  <
@@ -21,20 +37,6 @@
 --                                                     text
 --                                                     markup
 --                                                     eof
-
---[[
-
-code todo:
-	make parsing more bulletproof/more error-happy
-	look over all errors and ensure the positions are right
-
-spec todo:
-	https://www.w3.org/TR/xml/
-	add a variant of Text that goes up to entities, leaving it up to the user to expand them?
-	add XML preamble support, if only to skip it entirely
-	parse names correctly per https://www.w3.org/TR/xml/#charsets
-
-]]
 
 local xmls = {}
 
