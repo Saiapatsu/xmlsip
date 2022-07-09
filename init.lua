@@ -66,15 +66,17 @@ make parsing more bulletproof/more error-happy
 look over all errors and ensure the positions are right
 add a variant of Text that goes up to entities, leaving it up to you to expand them?
 
+https://www.w3.org/TR/xml/
+
 ]]
 
 local xmls = {}
 
--- Tag
+-- Markup
 -- The character < or end of file
--- Transition to STag, ETag, Comment, PI or MalformedTag
+-- Transition to STag, ETag, CDATA, Comment, PI or MalformedTag
 -- Return nil
-function xmls.tag(str, pos)
+function xmls.markup(str, pos)
 	if pos > #str then
 		return xmls.eof, pos
 	end
@@ -94,6 +96,8 @@ function xmls.tag(str, pos)
 	elseif sigil == "!" then -- <!
 		if str:sub(pos + 2, pos + 3) == "--" then -- <!--
 			return xmls.comment, pos + 4
+		elseif str:sub(pos + 2, pos + 8) == "[CDATA[" then -- <![CDATA[
+			return xmls.cdata, pos + 9
 		else -- <!asdf
 			return xmls.malformed, pos
 		end
@@ -132,6 +136,24 @@ function xmls.etag(str, pos)
 		error("Malformed etag at " .. pos) -- incorrect position
 	end
 	return xmls.text, pos + 1, pos - 1
+end
+
+-- CDATA section
+-- Anything
+-- Transition to Text
+-- Return end of content
+function xmls.cdata(str, pos)
+	-- todo: not a great idea to make this a case of Markup,
+	-- because it is actually text data
+	local pos2 = str:match("%]%]>()", pos)
+	if pos2 then
+		return xmls.text, pos2, pos2 - 4
+	else
+		-- unterminated
+		error("Unterminated CDATA section at " .. pos)
+		-- pos = #str
+		-- return xmls.text, pos, pos
+	end
 end
 
 -- Comment.
@@ -233,7 +255,7 @@ end
 -- Return end of content
 function xmls.text(str, pos)
 	pos = str:match("[^<]*()", pos)
-	return xmls.tag, pos, pos - 1
+	return xmls.markup, pos, pos - 1
 end
 
 -- End of file
