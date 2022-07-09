@@ -276,16 +276,44 @@ end
 
 ---------------------------------------------
 
--- function xmls.tags()
--- end
+-- Iterate over attribute name-value pairs.
+-- Use after STag
+-- Must follow up with TagEnd
+function xmls.attrs(str, pos)
+	local state, posB
+	local posA = pos
+	state, pos, posB = xmls.attr(str, pos)
+	if state == xmls.value then
+		local key = str:sub(posA, posB)
+		posA = pos + 1 -- skip the quote
+		state, pos, posB = xmls.value(str, pos)
+		return pos, key, str:sub(posA, posB)
+	else
+		return nil
+	end
+end
+--[[ Example:
+local str = '<test key="value" key="value">'
+local pos = 7
+for i, k, v in xmls.attrs, str, pos do
+	pos = i
+	print(k, v)
+end
+print(xmls.tagend(str, pos))
+]]
 
--- xmls.attrs
-
--- xmls.waste -- only in Attr
--- xmls.wasteAttrs -- only in Attr
--- xmls.wasteContent -- only... where? Text?
--- better name?
-
+-- Skip attributes.
+-- Use after STag
+-- Must follow up with TagEnd
+function xmls.wasteAttrs(str, pos)
+	return str:match("^[^/>]*()", pos)
+end
+--[[ Example:
+local str = '<test key="value" key="value">'
+local pos = 7
+pos = xmls.wasteAttrs(str, pos)
+print(xmls.tagend(str, pos))
+]]
 
 -- testing
 
