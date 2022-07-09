@@ -83,7 +83,7 @@ end
 function xmls.stag(str, pos)
 	pos = str:match("^%w+()", pos)
 	if pos == nil then
-		error("Invalid tag name at " .. pos)
+		error("Invalid tag name at " .. pos, 2)
 	end
 	return str:match("^[ \t\r\n]*()", pos), xmls.attr, pos - 1
 end
@@ -95,11 +95,11 @@ end
 function xmls.etag(str, pos)
 	pos = str:match("^%w+()", pos)
 	if pos == nil then
-		error("Invalid etag name at " .. pos)
+		error("Invalid etag name at " .. pos, 2)
 		
 	elseif str:sub(pos, pos) ~= ">" then
 		-- todo: is a trailing space in an etag valid?
-		error("Malformed etag at " .. pos) -- incorrect position
+		error("Malformed etag at " .. pos, 2) -- incorrect position
 	end
 	return pos + 1, xmls.text, pos - 1
 end
@@ -116,7 +116,7 @@ function xmls.cdata(str, pos)
 		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
-		error("Unterminated CDATA section at " .. pos)
+		error("Unterminated CDATA section at " .. pos, 2)
 		-- pos = #str
 		-- return pos, xmls.text, pos
 	end
@@ -132,7 +132,7 @@ function xmls.comment(str, pos)
 		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
-		error("Unterminated comment at " .. pos)
+		error("Unterminated comment at " .. pos, 2)
 		-- pos = #str
 		-- return pos, xmls.text, pos
 	end
@@ -148,7 +148,7 @@ function xmls.pi(str, pos)
 		return pos2, xmls.text, pos2 - 3
 	else
 		-- unterminated
-		error("Unterminated processing instruction at " .. pos)
+		error("Unterminated processing instruction at " .. pos, 2)
 		-- pos = #str
 		-- return pos, xmls.text, pos
 	end
@@ -160,7 +160,7 @@ end
 -- Return nil
 function xmls.malformed(str, pos)
 	-- zip to after >
-	error("Malformed tag at " .. pos)
+	error("Malformed tag at " .. pos, 2)
 end
 
 -- Attribute name or end of tag (end of attribute list).
@@ -171,11 +171,11 @@ function xmls.attr(str, pos)
 	if str:match("^[^/>]", pos) then
 		local nameend = str:match("^%w+()", pos)
 		if nameend == nil then
-			error("Invalid attribute name at " .. pos)
+			error("Invalid attribute name at " .. pos, 2)
 		end
 		pos = str:match("^[ \t\r\n]*()", nameend)
 		if str:sub(pos, pos) ~= "=" then
-			error("Malformed attribute at " .. pos)
+			error("Malformed attribute at " .. pos, 2)
 		end
 		pos = str:match("^[ \t\r\n]*()", pos + 1)
 		return pos, xmls.value, nameend - 1
@@ -192,12 +192,12 @@ function xmls.value(str, pos)
 	if str:sub(pos, pos) == '"' then
 		pos = str:match("^[^\"]*()", pos + 1)
 		if str:sub(pos, pos) ~= '"' then
-			error("Unclosed attribute value at " .. pos)
+			error("Unclosed attribute value at " .. pos, 2)
 		end
 	else
 		pos = str:match("^[^']*()", pos + 1)
 		if str:sub(pos, pos) ~= "'" then
-			error("Unclosed attribute value at " .. pos)
+			error("Unclosed attribute value at " .. pos, 2)
 		end
 	end
 	return str:match("^[ \t\r\n]*()", pos + 1), xmls.attr, pos - 1
@@ -218,10 +218,10 @@ function xmls.tagend(str, pos)
 		if str:sub(pos, pos) == ">" then
 			return pos + 1, xmls.text, false
 		else
-			error("Malformed tag end at " .. pos)
+			error("Malformed tag end at " .. pos, 2)
 		end
 	else
-		error("Malformed tag end at " .. pos)
+		error("Malformed tag end at " .. pos, 2)
 	end
 end
 
@@ -238,7 +238,7 @@ end
 -- Do not use
 -- Throws an error, shouldn't have read any further
 function xmls.eof(str, pos)
-	error("Exceeding end of file")
+	error("Exceeding end of file", 2)
 end
 
 ---------------------------------------------
