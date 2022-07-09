@@ -24,12 +24,15 @@
 
 --[[
 
-todo:
-make parsing more bulletproof/more error-happy
-look over all errors and ensure the positions are right
-add a variant of Text that goes up to entities, leaving it up to you to expand them?
+code todo:
+	make parsing more bulletproof/more error-happy
+	look over all errors and ensure the positions are right
 
-https://www.w3.org/TR/xml/
+spec todo:
+	https://www.w3.org/TR/xml/
+	add a variant of Text that goes up to entities, leaving it up to the user to expand them?
+	add XML preamble support, if only to skip it entirely
+	parse names correctly per https://www.w3.org/TR/xml/#charsets
 
 ]]
 
