@@ -115,7 +115,7 @@ function xmls.stag(str, pos)
 	if pos == nil then
 		error("Invalid tag name at " .. pos)
 	end
-	return xmls.attr, xmls.space(str, pos), pos
+	return xmls.attr, str:match("^[ \t\r\n]*()", pos), pos
 end
 
 -- Name of ending tag.
@@ -185,11 +185,11 @@ function xmls.attr(str, pos)
 		if nameend == nil then
 			error("Invalid attribute name at " .. pos)
 		end
-		pos = xmls.space(str, nameend)
+		pos = str:match("^[ \t\r\n]*()", nameend)
 		if str:sub(pos, pos) ~= "=" then
 			error("Malformed attribute at " .. pos)
 		end
-		pos = xmls.space(str, pos + 1)
+		pos = str:match("^[ \t\r\n]*()", pos + 1)
 		return xmls.value, pos, nameend
 	else
 		return xmls.tagend, pos, nil
@@ -212,7 +212,7 @@ function xmls.value(str, pos)
 			error("Unclosed attribute value at " .. pos)
 		end
 	end
-	return xmls.attr, xmls.space(str, pos + 1), pos
+	return xmls.attr, str:match("^[ \t\r\n]*()", pos + 1), pos
 end
 
 -- End of tag
@@ -239,14 +239,6 @@ end
 -- Error, shouldn't have read any further
 function xmls.eof(str, pos)
 	return error("Exceeding end of file")
-end
-
-function xmls.space(str, pos)
-	return str:match("^[ \t\r\n]*()", pos)
-end
-
-function xmls.name(str, pos) --> name
-	return str:match("^(%w+)()", pos)
 end
 
 ---------------------------------------------
