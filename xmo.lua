@@ -108,8 +108,16 @@ end
 
 -- Use at TagEnd
 -- Transition to Text
-function xmo:skip()
+function xmo:skipContent()
 	assert(self.state == xmls.tagend)
+	self:doState(xmls.skipContent)
+end
+
+-- Use at Attr
+-- Transition to Text
+function xmo:skip()
+	assert(self.state == xmls.attr)
+	self:doState(xmls.skipAttrs)
 	self:doState(xmls.skipContent)
 end
 
@@ -194,7 +202,6 @@ function xmo:doSwitch(action, name)
 	local case = type(action)
 	
 	if case == "nil" then
-		self:skipAttrs()
 		return self:skip()
 		
 	elseif case == "table" then
@@ -251,7 +258,6 @@ xml:doRoots {
 	Object = {
 		Item = function(xml, name)
 			print(name)
-			xml:skipAttrs()
 			xml:skip()
 		end,
 		ExtraTooltipData = function(xml, name)
@@ -260,7 +266,6 @@ xml:doRoots {
 			xml:doTags {
 				EffectInfo = function(xml, name)
 					print(name)
-					xml:skipAttrs()
 					xml:skip()
 				end
 			}
