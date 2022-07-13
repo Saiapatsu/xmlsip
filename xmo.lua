@@ -173,9 +173,6 @@ function xmo:nextRoot()
 		local state = self() --> ?
 		if state == xmls.stag then
 			return self.str:sub(self.pos, select(2, self())) --> attr
-		elseif state == xmls.etag then
-			self() --> text
-			return nil
 		elseif state == xmls.eof then
 			return nil
 		end
@@ -184,11 +181,45 @@ end
 
 -- Use at Text
 -- or Preamble, rather?
--- Transition to Text
+-- Transition to EOF
 function xmo:roots()
 	assert(self.state == xmls.text)
 	-- todo handle the <?xml?> whatever
 	return xmo.nextRoot, self
+end
+
+-- Use at Attr
+-- Transition to Text
+function xmo:doSwitch(action, name)
+	local case = type(action)
+	
+	if case == "nil" then
+		self:skipAttrs()
+		return self:skip()
+		
+	elseif case == "table" then
+		self:skipAttrs()
+		return self:doTags(action)
+		
+	elseif case == "function" then
+		return action(self, name)
+	end
+end
+
+-- Use at TagEnd
+-- Transition to Text
+function xmo:doTags(tree)
+	for name in self:tags() do
+		self:doSwitch(tree[name], name)
+	end
+end
+
+-- Use at Start
+-- Transition to EOF
+function xmo:doRoots(tree)
+	for name in self:roots() do
+		self:doSwitch(tree[name], name)
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -216,21 +247,23 @@ local str = [[<Object type="0xc69" id="Loot Drop Potion">
 local xml = xmo.new(str, 1, xmls.text)
 
 print()
-for _ in xml:roots() do
-	for k,v in xml:attrs() do
-		print("@" .. k, v)
-	end
-	for tagname in xml:tags() do
-		print(tagname)
-		for k,v in xml:attrs() do
-			print("", "@" .. k, v)
-		end
-		for tagname in xml:tags() do
-			print("", tagname)
-			for k,v in xml:attrs() do
-				print("", "", "@" .. k, v)
-			end
+xml:doRoots {
+	Object = {
+		Item = function(xml, name)
+			print(name)
+			xml:skipAttrs()
 			xml:skip()
-		end
-	end
-end
+		end,
+		ExtraTooltipData = function(xml, name)
+			print(name)
+			xml:skipAttrs()
+			xml:doTags {
+				EffectInfo = function(xml, name)
+					print(name)
+					xml:skipAttrs()
+					xml:skip()
+				end
+			}
+		end,
+	},
+}
