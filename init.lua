@@ -47,13 +47,11 @@ local xmls = {}
 function xmls.position(str, pos)
 	local line, lastpos = 0
 	local lastline = 1
+	-- find first line break that's after pos
 	for linestart in string.gmatch(str, "()[^\n]*") do
-		if pos >= linestart then
-			lastpos = linestart
-			line = line + 1
-		else
-			return line, pos - lastpos + 1
-		end
+		if pos < linestart then break end
+		lastpos = linestart
+		line = line + 1
 	end
 	return pos .. " (" .. line .. ", " .. pos - lastpos + 1 .. ")"
 end
