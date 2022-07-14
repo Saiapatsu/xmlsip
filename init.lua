@@ -68,37 +68,41 @@ end
 -- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return nil
 function xmls.markup(str, pos)
-	if pos > #str then
-		-- end of input
-		return pos, xmls.eof, nil
+	-- jump over the <
+	pos = pos + 1
+	
+	if str:match("^%w()", pos) ~= nil then -- <tag
+		return pos, xmls.stag, nil
 	end
 	
-	local sigil = str:sub(pos + 1, pos + 1)
+	local byte = str:byte(pos)
 	
-	if sigil:match("%w()") ~= nil then -- <tag
-		return pos + 1, xmls.stag, nil
-		
-	elseif sigil == "/" then -- </
-		if str:sub(pos + 2, pos + 2):match("%w()") ~= nil then -- </tag
-			return pos + 2, xmls.etag, nil
+	if byte == 47 then -- </
+		pos = pos + 1
+		if str:match("^%w()", pos) ~= nil then -- </tag
+			return pos, xmls.etag, nil
 		else -- </>
-			return pos + 1, xmls.malformed, nil
+			return pos - 1, xmls.malformed, nil
 		end
 		
-	elseif sigil == "!" then -- <!
-		if str:sub(pos + 2, pos + 3) == "--" then -- <!--
-			return pos + 4, xmls.comment, nil
-		elseif str:sub(pos + 2, pos + 8) == "[CDATA[" then -- <![CDATA[
-			return pos + 9, xmls.cdata, nil
+	elseif byte == 33 then -- <!
+		pos = pos + 1
+		if str:sub(pos, pos + 1) == "--" then -- <!--
+			return pos + 2, xmls.comment, nil
+		elseif str:sub(pos, pos + 6) == "[CDATA[" then -- <![CDATA[
+			return pos + 7, xmls.cdata, nil
 		else -- <!asdf
-			return pos + 1, xmls.malformed, nil
+			return pos - 1, xmls.malformed, nil
 		end
 		
-	elseif sigil == "?" then -- <?
-		return pos + 2, xmls.pi, nil
+	elseif byte == 63 then -- <?
+		return pos + 1, xmls.pi, nil
+		
+	elseif pos >= #str then -- end of file
+		return pos - 1, xmls.eof, nil
 		
 	else -- <\
-		return pos + 1, xmls.malformed, nil
+		return pos, xmls.malformed, nil
 	end
 end
 
