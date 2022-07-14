@@ -98,6 +98,13 @@ function xmo:tags()
 end
 
 -- Use at Attr
+-- Transition to Text
+function xmo:skip()
+	assert(self.state == xmls.attr)
+	self:doState(xmls.skip)
+end
+
+-- Use at Attr
 -- Transition to TagEnd
 function xmo:skipAttrs()
 	assert(self.state == xmls.attr)
@@ -108,14 +115,6 @@ end
 -- Transition to Text
 function xmo:skipContent()
 	assert(self.state == xmls.tagend)
-	self:doState(xmls.skipContent)
-end
-
--- Use at Attr
--- Transition to Text
-function xmo:skip()
-	assert(self.state == xmls.attr)
-	self:doState(xmls.skipAttrs)
 	self:doState(xmls.skipContent)
 end
 
