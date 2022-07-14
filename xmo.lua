@@ -1,4 +1,3 @@
-package.loaded.xmls2 = nil
 local xmls = require "xmls2"
 
 local xmo = {}
@@ -12,7 +11,6 @@ function xmo.new(str, pos, state)
 	}, xmo)
 end
 
--- not a good idea, do a :next() kinda thing
 function xmo:__call()
 	local value
 	self.pos, self.state, value = self.state(self.str, self.pos)
@@ -229,46 +227,4 @@ function xmo:doRoots(tree)
 	end
 end
 
---------------------------------------------------------------------------------
-
-local names = {}
-for k,v in pairs(xmls) do names[v] = k end
-
-local str = [[<Object type="0xc69" id="Loot Drop Potion">
-	<Class>Equipment</Class>
-	<Item/>
-	<Texture><File>lofiObj3</File><Index>0x2dd</Index></Texture>
-	<SlotType>10</SlotType>
-	<Description>A potion that causes enemies to drop more loot! Lasts 30 minutes.</Description>
-	<ExtraTooltipData>
-		<EffectInfo name="Duration" description="30 min"/>
-	</ExtraTooltipData>
-	<Sound>use_potion</Sound>
-	<Consumable/>
-	<Soulbound/>
-	<LDBoosted/>
-	<Timer>1800</Timer>
-	<BagType>0</BagType>
-</Object>]]
-
-local xml = xmo.new(str, 1, xmls.text)
-
-print()
-xml:doRoots {
-	Object = {
-		Item = function(xml, name)
-			print(name)
-			xml:skip()
-		end,
-		ExtraTooltipData = function(xml, name)
-			print(name)
-			xml:skipAttrs()
-			xml:doTags {
-				EffectInfo = function(xml, name)
-					print(name)
-					xml:skip()
-				end
-			}
-		end,
-	},
-}
+return xmo
