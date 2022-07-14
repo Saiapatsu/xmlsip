@@ -41,27 +41,34 @@ spec todo:
 
 local xmls = {}
 
--- Error reporting
--- ===============
-
-function xmls.position(str, pos)
-	local line, lastpos = 0
-	local lastline = 1
-	-- find first line break that's after pos
-	for linestart in string.gmatch(str, "()[^\n]*") do
-		if pos < linestart then break end
-		lastpos = linestart
-		line = line + 1
-	end
-	return pos .. " (" .. line .. ", " .. pos - lastpos + 1 .. ")"
-end
-
-function xmls.error(reason, str, pos)
-	return error(debug.traceback(reason .. " at " .. xmls.position(str, pos), 2), 2)
-end
-
 -- States
 -- ======
+
+-- Mapping from state function to state name
+xmls.names = {} -- [function] = string
+--[[
+text
+markup
+stag
+etag
+cdata
+comment
+pi
+malformed
+attr
+value
+tagend
+eof
+]]
+
+-- Plain text
+-- Use outside of markup
+-- Transition to Markup
+-- Return end of text
+function xmls.text(str, pos)
+	pos = str:match("[^<]*()", pos)
+	return pos, xmls.markup, pos - 1
+end
 
 -- Markup
 -- Use at "<" or EOF
@@ -239,15 +246,6 @@ function xmls.tagend(str, pos)
 	return xmls.error("Malformed tag end", str, pos)
 end
 
--- Plain text
--- Use outside of markup
--- Transition to Markup
--- Return end of text
-function xmls.text(str, pos)
-	pos = str:match("[^<]*()", pos)
-	return pos, xmls.markup, pos - 1
-end
-
 -- End of file
 -- Do not use
 -- Throws an error, shouldn't have read any further
@@ -255,8 +253,32 @@ function xmls.eof(str, pos)
 	return xmls.error("Exceeding end of file", str, pos)
 end
 
--- Supplemental methods
--- ====================
+-- Populate xmls.names
+for k,v in pairs(xmls) do
+	xmls.names[v] = k
+end
+
+-- Error reporting
+-- ===============
+
+function xmls.position(str, pos)
+	local line, lastpos = 0
+	local lastline = 1
+	-- find first line break that's after pos
+	for linestart in string.gmatch(str, "()[^\n]*") do
+		if pos < linestart then break end
+		lastpos = linestart
+		line = line + 1
+	end
+	return pos .. " (" .. line .. ", " .. pos - lastpos + 1 .. ")"
+end
+
+function xmls.error(reason, str, pos)
+	return error(debug.traceback(reason .. " at " .. xmls.position(str, pos), 2), 2)
+end
+
+-- Supplementary methods
+-- =====================
 
 -- Skip attributes and content of a tag
 -- Use at Attr
