@@ -60,7 +60,7 @@ function xmls.error(reason, str, pos)
 	return error(debug.traceback(reason .. " at " .. xmls.position(str, pos), 2), 2)
 end
 
--- Tier 1
+-- States
 -- ======
 
 -- Markup
@@ -75,11 +75,11 @@ function xmls.markup(str, pos)
 	
 	local sigil = str:sub(pos + 1, pos + 1)
 	
-	if sigil:match("%w") then -- <tag
+	if sigil:match("%w()") ~= nil then -- <tag
 		return pos + 1, xmls.stag, nil
 		
 	elseif sigil == "/" then -- </
-		if str:sub(pos + 2, pos + 2):match("%w") then -- </tag
+		if str:sub(pos + 2, pos + 2):match("%w()") ~= nil then -- </tag
 			return pos + 2, xmls.etag, nil
 		else -- </>
 			return pos + 1, xmls.malformed, nil
@@ -135,16 +135,11 @@ end
 -- Transition to Text
 -- Return end of content
 function xmls.cdata(str, pos)
-	-- todo: not a great idea to make this a case of Markup,
-	-- because it is actually text data
 	local pos2 = str:match("%]%]>()", pos)
-	if pos2 then
+	if pos2 ~= nil then
 		return pos2, xmls.text, pos2 - 4
 	else
-		-- unterminated
 		return xmls.error("Unterminated CDATA section", str, pos)
-		-- pos = #str
-		-- return pos, xmls.text, pos
 	end
 end
 
@@ -154,7 +149,7 @@ end
 -- Return end of content
 function xmls.comment(str, pos)
 	local pos2 = str:match("%-%->()", pos)
-	if pos2 then
+	if pos2 ~= nil then
 		return pos2, xmls.text, pos2 - 4
 	else
 		-- unterminated
@@ -170,7 +165,7 @@ end
 -- Return end of content
 function xmls.pi(str, pos)
 	local pos2 = str:match("?>()", pos)
-	if pos2 then
+	if pos2 ~= nil then
 		return pos2, xmls.text, pos2 - 3
 	else
 		-- unterminated
@@ -194,7 +189,7 @@ end
 -- Transition to Value and return end of name
 -- Transition to TagEnd and return nil
 function xmls.attr(str, pos)
-	if str:match("^[^/>]", pos) then
+	if str:match("^[^/>]()", pos) ~= nil then
 		local nameend = str:match("^%w+()", pos)
 		if nameend == nil then
 			return xmls.error("Invalid attribute name", str, pos)
