@@ -111,11 +111,11 @@ end
 -- Transition to Attr
 -- Return end of name
 function xmls.stag(str, pos)
-	pos = str:match("^%w+()", pos)
-	if pos == nil then
+	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
+	if posName == nil then
 		return xmls.error("Invalid tag name", str, pos)
 	end
-	return str:match("^[ \t\r\n]*()", pos), xmls.attr, pos - 1
+	return posSpace, xmls.attr, posName - 1
 end
 
 -- Name of ending tag
@@ -123,15 +123,14 @@ end
 -- Transition to Text
 -- Return end of name
 function xmls.etag(str, pos)
-	pos = str:match("^%w+()", pos)
-	if pos == nil then
+	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
+	if posName == nil then
 		return xmls.error("Invalid etag name", str, pos)
-		
-	elseif str:sub(pos, pos) ~= ">" then
-		-- todo: is a trailing space in an etag valid?
-		return xmls.error("Malformed etag", str, pos) -- incorrect position
 	end
-	return pos + 1, xmls.text, pos - 1
+	if str:byte(posSpace) ~= 62 then
+		return xmls.error("Malformed etag", str, pos)
+	end
+	return posSpace + 1, xmls.text, posName - 1
 end
 
 -- Content of CDATA section
@@ -194,16 +193,11 @@ end
 -- Transition to TagEnd and return nil
 function xmls.attr(str, pos)
 	if str:match("^[^/>]()", pos) ~= nil then
-		local nameend = str:match("^%w+()", pos)
-		if nameend == nil then
-			return xmls.error("Invalid attribute name", str, pos)
-		end
-		pos = str:match("^[ \t\r\n]*()", nameend)
-		if str:sub(pos, pos) ~= "=" then
+		local posName, posSpace = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
+		if posName == nil then
 			return xmls.error("Malformed attribute", str, pos)
 		end
-		pos = str:match("^[ \t\r\n]*()", pos + 1)
-		return pos, xmls.value, nameend - 1
+		return posSpace, xmls.value, posName - 1
 	else
 		return pos, xmls.tagend, nil
 	end
@@ -214,18 +208,18 @@ end
 -- Transition to Attr
 -- Return end of value
 function xmls.value(str, pos)
-	if str:sub(pos, pos) == '"' then
-		pos = str:match("^[^\"]*()", pos + 1)
-		if str:sub(pos, pos) ~= '"' then
-			return xmls.error("Unclosed attribute value", str, pos)
-		end
+	local posQuote, posSpace = str:byte(pos)
+	if posQuote == 34 then -- "
+		posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos + 1)
+	elseif posQuote == 39 then -- '
+		posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos + 1)
 	else
-		pos = str:match("^[^']*()", pos + 1)
-		if str:sub(pos, pos) ~= "'" then
-			return xmls.error("Unclosed attribute value", str, pos)
-		end
+		return xmls.error("Unquoted attribute value", str, pos)
 	end
-	return str:match("^[ \t\r\n]*()", pos + 1), xmls.attr, pos - 1
+	if posQuote == nil then
+		return xmls.error("Unterminated attribute value", str, pos)
+	end
+	return posSpace, xmls.attr, posQuote - 1
 end
 
 -- End of tag
@@ -233,21 +227,16 @@ end
 -- Transition to Text
 -- Return true if opening tag, false if self-closing
 function xmls.tagend(str, pos)
-	-- todo: figure out when this could possibly be called if it isn't / or >
-	-- xmls.attr will defer to this if it runs into the end of file
-	local sigil = str:sub(pos, pos)
-	if sigil == ">" then
+	-- warning: xmls.attr will transition to this if it runs into the end of file
+	local byte = str:byte(pos)
+	if byte == 62 then -- >
 		return pos + 1, xmls.text, true
-	elseif sigil == "/" then
-		pos = pos + 1
-		if str:sub(pos, pos) == ">" then
-			return pos + 1, xmls.text, false
-		else
-			return xmls.error("Malformed tag end", str, pos)
+	elseif byte == 47 then -- /
+		if str:byte(pos + 1) == 62 then -- >
+			return pos + 2, xmls.text, false
 		end
-	else
-		return xmls.error("Malformed tag end", str, pos)
 	end
+	return xmls.error("Malformed tag end", str, pos)
 end
 
 -- Plain text
@@ -266,8 +255,8 @@ function xmls.eof(str, pos)
 	return xmls.error("Exceeding end of file", str, pos)
 end
 
--- Tier 2
--- ======
+-- Supplemental methods
+-- ====================
 
 -- Get one attribute key-value pair, iterable
 -- Use at Attr
