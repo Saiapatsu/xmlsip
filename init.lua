@@ -358,6 +358,7 @@ local xmo = {}
 xmo.__index = xmo
 xmls.xmo = xmo
 
+-- Constructor
 function xmls.new(str, pos, state)
 	return setmetatable({
 		str = str,
@@ -366,16 +367,125 @@ function xmls.new(str, pos, state)
 	}, xmo)
 end
 
+-- Advance to the next state
 function xmo:__call()
 	local value
 	self.pos, self.state, value = self.state(self.str, self.pos)
 	return self.state, value
 end
 
+-- Use a supplemental method
 function xmo:doState(state)
 	local value
 	self.pos, self.state, value = state(self.str, self.pos)
 	return self.state, value
+end
+
+-- Skipping irrelevant content
+-- ===========================
+
+-- Use at Attr
+-- Transition to Text
+function xmo:skip()
+	assert(self.state == xmls.attr)
+	return self:doState(xmls.skip)
+end
+
+-- Use at Attr
+-- Transition to TagEnd
+function xmo:skipAttrs()
+	assert(self.state == xmls.attr)
+	return self:doState(xmls.skipAttrs)
+end
+
+-- Use at TagEnd
+-- Transition to Text
+function xmo:skipContent()
+	assert(self.state == xmls.tagend)
+	return self:doState(xmls.skipContent)
+end
+
+-- Use at TagEnd
+-- Transition to Text
+-- Return inner XML
+function xmo:getInner()
+	assert(self.state == xmls.tagend)
+	local state, value = self() --> text
+	if value == true then
+		return self.str:sub(self.pos, select(2, self:doState(xmls.skipInner))) --> text
+	else
+		return ""
+	end
+end
+
+-- Iterables
+-- =========
+
+-- Iterator that stops immediately
+local function nop() end
+
+-- Use at Text
+-- Return tag name at Attr
+-- Bring to Text
+-- Transition to EOF
+function xmo:roots()
+	assert(self.state == xmls.text)
+	return xmo.nextRoot, self
+end
+
+-- Use at Attr
+-- Return key, value at Attr
+-- Transition to TagEnd
+function xmo:attrs()
+	assert(self.state == xmls.attr)
+	return xmo.nextAttr, self
+end
+
+-- Use at TagEnd
+-- Return tag name, inner XML at Text
+-- Transition to Text
+function xmo:pairs()
+	assert(self.state == xmls.tagend)
+	local state, value = self()
+	return value and xmo.nextPair or nop, self
+end
+
+-- Use at TagEnd
+-- Return state at ?
+-- Bring to Text
+-- Transition to Text
+function xmo:markup()
+	assert(self.state == xmls.tagend)
+	local state, value = self()
+	return value and xmo.nextMarkup or nop, self
+end
+
+-- Use at TagEnd
+-- Return tag name at Attr
+-- Bring to Text
+-- Transition to Text
+function xmo:tags()
+	assert(self.state == xmls.tagend)
+	local state, value = self()
+	return value and xmo.nextTag or nop, self
+end
+
+-- Iterators
+-- =========
+
+-- Use at Text
+-- Transition to Attr and return tag name
+-- Transition to Text and return nil
+function xmo:nextRoot()
+	self() --> markup
+	while true do
+		local state = self() --> ?
+		if state == xmls.stag then
+			return self.str:sub(self.pos, select(2, self())) --> attr
+		elseif state == xmls.eof then
+			return nil
+		end
+	end
 end
 
 -- Use at Attr
@@ -394,18 +504,6 @@ function xmo:nextAttr()
 	end
 end
 
--- Use at Attr
--- Transition to TagEnd
-function xmo:attrs()
-	assert(self.state == xmls.attr)
-	return xmo.nextAttr, self
-end
-
-------------
-
--- Use at Text after TagEnd->false
-local function nop() end
-
 -- Use at Text
 -- Transition to ? and return state
 -- Transition to Text and return nil
@@ -418,14 +516,6 @@ function xmo:nextMarkup()
 		self() --> text
 		return nil
 	end
-end
-
--- Use at TagEnd
--- Transition to Text
-function xmo:markup()
-	assert(self.state == xmls.tagend)
-	local state, value = self()
-	return value and xmo.nextMarkup or nop, self
 end
 
 -- Use at Text
@@ -444,61 +534,22 @@ function xmo:nextTag()
 	end
 end
 
--- Use at TagEnd
--- Transition to Text
-function xmo:tags()
-	assert(self.state == xmls.tagend)
-	local state, value = self()
-	return value and xmo.nextTag or nop, self
-end
-
--- Use at Attr
--- Transition to Text
-function xmo:skip()
-	assert(self.state == xmls.attr)
-	self:doState(xmls.skip)
-end
-
--- Use at Attr
--- Transition to TagEnd
-function xmo:skipAttrs()
-	assert(self.state == xmls.attr)
-	self:doState(xmls.skipAttrs)
-end
-
--- Use at TagEnd
--- Transition to Text
-function xmo:skipContent()
-	assert(self.state == xmls.tagend)
-	self:doState(xmls.skipContent)
-end
-
--- to get innertext, you definitely need a rope to join cdatas and anything around comments, PIs etc.
--- but most of the time you are only interested in innerXML, hellyea
-
--- the nextTag, nextMarkup etc. could take an argument: the tag they are in
--- if the argument is supplied and the end tag doesn't match, complain
--- it works because the nop() doesn't complain ever
-
--- the declarative kinda thing with the tables..
--- the one that takes a table and calls functions for stuff that's in the table
--- the one that calls a callback for every child
--- the one that calls a callback for every descendant (stops descending when the cb says so)
-	-- useful for a sax/xpath kinda thing?
--- 6 am specs
-
 -- Use at Text
--- Transition to Attr and return tag name
+-- Transition to Text and return tag name, tag content
 -- Transition to Text and return nil
 function xmo:nextPair()
 	self() --> markup
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
-			
-			
-			
-			
+			local name = self.str:sub(self.pos, select(2, self())) --> attr
+			self:doState(xmls.skipAttrs) --> tagend
+			local state, value = self() --> text
+			if value == true then
+				return name, self.str:sub(self.pos, select(2, self:doState(xmls.skipInner))) --> text
+			else
+				return name, ""
+			end
 		elseif state == xmls.etag then
 			self() --> text
 			return nil
@@ -506,68 +557,13 @@ function xmo:nextPair()
 	end
 end
 
--- pairs of tagname, innerXML of course
--- with nil as the name
--- Use at TagEnd
--- Transition to Text
-function xmo:pairs()
-	assert(self.state == xmls.tagend)
-	local state, value = self()
-	return value and xmo.nextPair or nop, self
-end
-
-function xmo:getAttrs(tbl)
-	tbl = tbl or {}
-	for k, v in self:attrs() do
-		tbl[k] = v
-	end
-	return tbl
-end
-
--- Use at Text
--- Transition to Attr and return tag name
--- Transition to Text and return nil
-function xmo:nextRoot()
-	self() --> markup
-	while true do
-		local state = self() --> ?
-		if state == xmls.stag then
-			return self.str:sub(self.pos, select(2, self())) --> attr
-		elseif state == xmls.eof then
-			return nil
-		end
-	end
-end
-
--- Use at Text
--- or Preamble, rather?
--- Transition to EOF
-function xmo:roots()
-	assert(self.state == xmls.text)
-	-- todo handle the <?xml?> whatever
-	return xmo.nextRoot, self
-end
-
--- Use at Attr
--- Transition to Text
-function xmo:doSwitch(action, name)
-	local case = type(action)
-	
-	if case == "nil" then
-		return self:skip()
-		
-	elseif case == "table" then
-		self:skipAttrs()
-		return self:doTags(action)
-		
-	elseif case == "function" then
-		return action(self, name)
-	end
-end
+-- Parsing with callbacks
+-- ======================
 
 -- Use at TagEnd
 -- Transition to Text
 function xmo:doTags(tree)
+	assert(self.state == xmls.tagend)
 	for name in self:tags() do
 		self:doSwitch(tree[name], name)
 	end
@@ -576,9 +572,45 @@ end
 -- Use at Start
 -- Transition to EOF
 function xmo:doRoots(tree)
+	assert(self.state == xmls.text)
 	for name in self:roots() do
 		self:doSwitch(tree[name], name)
 	end
 end
+
+-- Use at Attr
+-- Transition to Text
+function xmo:doSwitch(action, name)
+	local case = type(action)
+	
+	if case == "nil" then
+		return self:doState(xmls.skip)
+		
+	elseif case == "table" then
+		self:doState(xmls.skipAttrs)
+		return self:doTags(action)
+		
+	elseif case == "function" then
+		return action(self, name)
+	end
+end
+
+-- Other
+-- =====
+
+-- Use at Attr
+-- Return map of attributes
+-- Transition to TagEnd
+function xmo:getAttrs(tbl)
+	assert(self.state == xmls.attr)
+	tbl = tbl or {}
+	for k, v in xmo.nextAttr, self do
+		tbl[k] = v
+	end
+	return tbl
+end
+
+-- End
+-- ===
 
 return xmls
