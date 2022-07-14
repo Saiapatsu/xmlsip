@@ -258,33 +258,6 @@ end
 -- Supplemental methods
 -- ====================
 
--- Get one attribute key-value pair, iterable
--- Use at Attr
--- Transition to Attr and return pos, key, value
--- Transition to TagEnd and return nil
-function xmls.attrs(str, pos)
-	local state, posB
-	local posA = pos
-	pos, state, posB = xmls.attr(str, pos)
-	if state == xmls.value then
-		local key = str:sub(posA, posB)
-		posA = pos + 1 -- skip the quote
-		pos, state, posB = xmls.value(str, pos)
-		return pos, key, str:sub(posA, posB)
-	else
-		return nil
-	end
-end
---[[ Example:
-local str = '<test key="value" key="value">'
-local pos = 7
-for i, k, v in xmls.attrs, str, pos do
-	pos = i
-	print(k, v)
-end
-print(xmls.tagend(str, pos))
-]]
-
 -- Skip attributes and content of a tag
 -- Use at Attr
 -- Transition to Text
@@ -294,7 +267,7 @@ function xmls.skip(str, pos)
 end
 
 -- Skip attributes of a tag
--- Use at Attr
+-- Use between a < and a >
 -- Transition to TagEnd
 function xmls.skipAttrs(str, pos)
 	-- fails when there's a slash in an attribute value!
@@ -310,12 +283,6 @@ function xmls.skipAttrs(str, pos)
 		return pos, xmls.tagend
 	end
 end
---[[ Example:
-local str = '<test key="value" key="value">'
-local pos = 7
-pos = xmls.wasteAttrs(str, pos)
-print(xmls.tagend(str, pos))
-]]
 
 -- Skip the content and end tag of a tag
 -- Use at TagEnd
@@ -342,7 +309,7 @@ function xmls.skipInner(str, pos)
 		posB = pos
 		pos, state = state(str, pos) --> ?
 		if state == xmls.stag then --> stag
-			pos, state = state(str, pos) --> attr
+			-- pos, state = state(str, pos) --> attr
 			pos, state = xmls.skipAttrs(str, pos) --> tagend
 			pos, state, value = state(str, pos) --> text
 			if value == true then
@@ -354,45 +321,10 @@ function xmls.skipInner(str, pos)
 			pos, state = state(str, pos) --> text
 			
 		else --> ?
-			repeat
-				pos, state = state(str, pos)
-			until state == xmls.text --> text
+			pos, state = state(str, pos) --> text
 		end
 	until level == 0
 	return pos, state, posB - 1
 end
-
--- Go to and consume next STag or ETag
--- Use at Text
--- Transition to Attr and return pos, xmls.attr, name
--- Transition to Text and return pos, xmls.text, name
-function xmls.tags(str, pos)
-	local state = xmls.text
-	while true do
-		repeat
-			pos, state = state(str, pos)
-		until state == xmls.markup
-		pos, state = state(str, pos)
-		if state == xmls.stag or state == xmls.etag then
-			local posA, posB = pos
-			pos, state, posB = state(str, pos)
-			return pos, state, str:sub(posA, posB)
-		end
-	end
-end
---[[ Example:
-local str = "<root><testA key='value'>foo<!--test--><testing></testing></testA><testB/></root>"
-local pos, state, value = 7, xmls.text
-while true do
-	pos, state, value = xmls.tags(str, pos)
-	if state ~= xmls.attr then break end
-	print(value)
-	for i, k, v in xmls.attrs, str, pos do
-		pos = i
-		print("", k, v)
-	end
-	pos = xmls.skipContent(str, pos)
-end
-]]
 
 return xmls
