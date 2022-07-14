@@ -15,29 +15,31 @@ spec todo:
 
 ]]
 
--- <Object type="0x01ff" id="Sheep">asdf<foo/></Object>
--- <       type=         id=       >    <   /> /Object>
---  Object      "0x01ff"    "Sheep" asdf foo  <
--- text
--- markup
---  stag
---         attr
---              value
---                       attr
---                          value
---                                 attr
---                                 tagend (opening)
---                                  text
---                                      markup
---                                       stag
---                                          attr
---                                          tagend (self-closing)
---                                            text
---                                            markup
---                                             etag
---                                                     text
---                                                     markup
---                                                     eof
+--[[
+<Object type="0x01ff" id="Sheep">asdf<foo/></Object>
+<       type=         id=       >    <   /> /Object>
+ Object      "0x01ff"    "Sheep" asdf foo  <
+text
+markup
+ stag
+        attr
+             value
+                      attr
+                         value
+                                attr
+                                tagend (opening)
+                                 text
+                                     markup
+                                      stag
+                                         attr
+                                         tagend (self-closing)
+                                           text
+                                           markup
+                                            etag
+                                                    text
+                                                    markup
+                                                    eof
+]]
 
 local xmls = {}
 
