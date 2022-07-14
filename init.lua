@@ -309,7 +309,18 @@ end
 -- Use at Attr
 -- Transition to TagEnd
 function xmls.skipAttrs(str, pos)
-	return str:match("^[^/>]*()", pos), xmls.tagend
+	-- fails when there's a slash in an attribute value!
+	-- local pos2 = str:match("^[^/>]*()", pos)
+	-- local pos2 = str:match("^.-()/?>", pos)
+	-- if pos2 == nil then
+		-- xmls.error("Unterminated start tag", str, pos2)
+	-- end
+	pos = str:match("^[^>]*()", pos)
+	if str:byte(pos - 1) == 47 then
+		return pos - 1, xmls.tagend
+	else
+		return pos, xmls.tagend
+	end
 end
 --[[ Example:
 local str = '<test key="value" key="value">'
