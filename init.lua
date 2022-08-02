@@ -272,7 +272,7 @@ function xmls.position(str, pos)
 		lastpos = linestart
 		line = line + 1
 	end
-	return pos .. " (" .. line .. ", " .. pos - lastpos + 1 .. ")"
+	return line .. ":" .. pos - lastpos + 1 .. " (" .. pos ..")"
 end
 
 function xmls.error(reason, str, pos)
