@@ -588,7 +588,9 @@ function xmo:doSwitch(action, name)
 		
 	elseif case == "table" then
 		self:doState(xmls.skipAttrs)
-		return self:doTags(action)
+		for name in self:tags() do
+			self:doSwitch(action[name], name)
+		end
 		
 	elseif case == "function" then
 		return action(self, name)
