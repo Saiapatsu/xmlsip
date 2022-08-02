@@ -17,8 +17,8 @@ spec todo:
 
 --[[
 <Object type="0x01ff" id="Sheep">asdf<foo/></Object>
-<       type=         id=       >    <   /> /Object>
- Object      "0x01ff"    "Sheep" asdf foo  <
+<       type=         id=       >    <   />  Object>
+ Object      "0x01ff"    "Sheep" asdf foo  </
 text
 markup
  stag
@@ -35,7 +35,7 @@ markup
                                          tagend (self-closing)
                                            text
                                            markup
-                                            etag
+                                             etag
                                                     text
                                                     markup
                                                     eof
