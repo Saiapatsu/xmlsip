@@ -1,6 +1,6 @@
 --[[
--- xmls2
--- minimal XML parsing utilities in Lua
+xmls2
+minimal XML parsing utilities in Lua
 
 code todo:
 	make parsing more bulletproof/more error-happy
@@ -12,6 +12,33 @@ spec todo:
 	implement entities in attribute values
 	add XML preamble support, if only to skip it entirely
 	parse names correctly per https://www.w3.org/TR/xml/#charsets
+	make it easy to verify user-side whether etag matches stag
+		(in the c port, take a char* to stag and check whether it matches etag)
+
+features todo:
+	innerText
+	entities
+	substitution (using a separate object), specify the ranges whose text to replace and it will splice together original text and replacement text into one rope
+
+stag and value are always followed by attr even if there are no attributes following
+that's because a stag always has an attribute list, said list may simply be empty
+therefore, stag and value leading to attr is not really redundant... or is it?
+attr() could check whether it's actually at attr and you are required to always
+consume all attributes with attrs() or skipAttrs()
+this only makes functions that check state == xmls.attr more complicated
+of which there are quite a few, actually...
+
+there is a separate "markup" state because it sets up the next state
+such that it begins at the beginning of the important string in it
+if text were to go straight to stag for example, then consumers would only see
+the positions of start of text, end of text and start of stag name
+now that I've written it out, it doesn't seem that bad because text necessarily
+returns its end (i.e. before start of markup), making markup truly redundant...
+I was thinking that it'd be impossible to know where stag name started
+I actually thought that while looking at etag name, actually, but that's solved too
+
+there are no productions with leading spaces here, only trailing spaces
+(not sure, verify this)
 
 ]]
 
