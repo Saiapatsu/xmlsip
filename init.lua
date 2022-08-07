@@ -263,20 +263,22 @@ end
 -- Error reporting
 -- ===============
 
-function xmls.position(str, pos)
-	local line, lastpos = 0
-	local lastline = 1
+-- Get line number and position in line from string and position in string
+function xmls.linepos(str, pos)
+	local line = 0
+	local lastpos = 1
 	-- find first line break that's after pos
 	for linestart in string.gmatch(str, "()[^\n]*") do
 		if pos < linestart then break end
 		lastpos = linestart
 		line = line + 1
 	end
-	return line .. ":" .. pos - lastpos + 1 .. " (" .. pos ..")"
+	return line, pos - lastpos + 1
 end
 
-function xmls.error(reason, str, pos)
-	return error(debug.traceback(reason .. " at " .. xmls.position(str, pos), 2), 2)
+function xmls.error(reason, str, filepos)
+	local line, linepos = xmls.linepos(str, filepos)
+	return error(debug.traceback(string.format("%s at %d:%d (%d)", reason, line, linepos, filepos), 2), 2)
 end
 
 -- Supplementary methods
