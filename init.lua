@@ -412,6 +412,8 @@ xmo.__index = xmo
 xmls.xmo = xmo
 
 -- Constructor
+-- You're free to put arbitrary stuff inside this table.
+-- In particular, xmo:traceback() acts differently if path is set.
 function xmls.new(str, pos, state)
 	return setmetatable({
 		str = str,
@@ -663,6 +665,16 @@ function xmo:getAttrs(tbl)
 		tbl[k] = v
 	end
 	return tbl
+end
+
+-- Return a string in the form of [path:]line:pos
+function xmo:traceback()
+	local line, linepos = xmls.linepos(self.str, self.pos)
+	if self.path then
+		return string.format("%s:%d:%d:%d", self.path, self.pos, line, linepos)
+	else
+		return string.format("%d:%d:%d", self.pos, line, linepos)
+	end
 end
 
 -- End
