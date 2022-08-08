@@ -22,32 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ]]
 
---[[
-<Object type="0x01ff" id="Sheep">asdf<foo/></Object>
-<       type=         id=       >    <   />  Object>
- Object      "0x01ff"    "Sheep" asdf foo  </
-text
-markup
- stag
-        attr
-             value
-                      attr
-                         value
-                                attr
-                                tagend (opening)
-                                 text
-                                     markup
-                                      stag
-                                         attr
-                                         tagend (self-closing)
-                                           text
-                                           markup
-                                             etag
-                                                    text
-                                                    markup
-                                                    eof
-]]
-
 local xmls = {}
 
 -- States
@@ -55,20 +29,6 @@ local xmls = {}
 
 -- Mapping from state function to state name
 xmls.names = {} -- [function] = string
---[[
-text
-markup
-stag
-etag
-cdata
-comment
-pi
-malformed
-attr
-value
-tagend
-eof
-]]
 
 -- Plain text
 -- Use outside of markup
