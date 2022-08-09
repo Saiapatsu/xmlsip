@@ -227,27 +227,6 @@ for k,v in pairs(xmls) do
 	xmls.names[v] = k
 end
 
--- Error reporting
--- ===============
-
--- Get line number and position in line from string and position in string
-function xmls.linepos(str, pos)
-	local line = 0
-	local lastpos = 1
-	-- find first line break that's after pos
-	for linestart in string.gmatch(str, "()[^\n]*") do
-		if pos < linestart then break end
-		lastpos = linestart
-		line = line + 1
-	end
-	return line, pos - lastpos + 1
-end
-
-function xmls.error(reason, str, filepos)
-	local line, linepos = xmls.linepos(str, filepos)
-	return error(debug.traceback(string.format("%s at %d:%d (%d)", reason, line, linepos, filepos), 2), 2)
-end
-
 -- Supplementary methods
 -- =====================
 
@@ -320,8 +299,38 @@ function xmls.skipInner(str, pos)
 	return pos, state, posB - 1
 end
 
--- Parsing using a state-holding object
--- ====================================
+-- Error reporting supplements
+-- ===========================
+
+-- Get line number and position in line from string and position in string
+function xmls.linepos(str, pos)
+	local line = 0
+	local lastpos = 1
+	-- find first line break that's after pos
+	for linestart in string.gmatch(str, "()[^\n]*") do
+		if pos < linestart then break end
+		lastpos = linestart
+		line = line + 1
+	end
+	return line, pos - lastpos + 1
+end
+
+function xmls.traceback(str, pos, path)
+	local line, linepos = xmls.linepos(str, pos)
+	if path then
+		return string.format("%s:%d:%d:%d", path, pos, line, linepos)
+	else
+		return string.format("%d:%d:%d", pos, line, linepos)
+	end
+end
+
+function xmls.error(reason, str, filepos)
+	local line, linepos = xmls.linepos(str, filepos)
+	return error(debug.traceback(string.format("%s at %d:%d:%d", reason, filepos, line, linepos), 2), 2)
+end
+
+-- Parsing state object
+-- ====================
 
 local xmo = {}
 xmo.__index = xmo
@@ -584,13 +593,8 @@ function xmo:getAttrs(tbl)
 end
 
 -- Return a string in the form of [path:]line:pos
-function xmo:traceback()
-	local line, linepos = xmls.linepos(self.str, self.pos)
-	if self.path then
-		return string.format("%s:%d:%d:%d", self.path, self.pos, line, linepos)
-	else
-		return string.format("%d:%d:%d", self.pos, line, linepos)
-	end
+function xmo:traceback(pos)
+	return xmls.traceback(self.str, pos or self.pos, self.path)
 end
 
 -- End
