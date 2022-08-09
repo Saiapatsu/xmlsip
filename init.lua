@@ -27,7 +27,7 @@ local xmls = {}
 -- States
 -- ======
 
--- Mapping from state function to state name
+-- Map state to state name
 xmls.names = {} -- [function] = string
 
 -- Plain text
@@ -204,6 +204,7 @@ end
 -- Return true if opening tag, false if self-closing
 function xmls.tagend(str, pos)
 	-- warning: xmls.attr will transition to this if it runs into the end of file
+	-- c port?: return enum instead of bool
 	local byte = str:byte(pos)
 	if byte == 62 then -- >
 		return pos + 1, xmls.text, true
@@ -233,15 +234,15 @@ end
 -- Skip attributes and content of a tag
 -- Use at Attr
 -- Transition to Text
-function xmls.skip(str, pos)
-	pos = xmls.skipAttrs(str, pos)
+function xmls.skipTag(str, pos)
+	pos = xmls.skipAttr(str, pos)
 	return xmls.skipContent(str, pos)
 end
 
 -- Skip attributes of a tag
 -- Use between a < and a >
 -- Transition to TagEnd
-function xmls.skipAttrs(str, pos)
+function xmls.skipAttr(str, pos)
 	-- fails when there's a slash in an attribute value!
 	-- local pos2 = str:match("^[^/>]*()", pos)
 	-- local pos2 = str:match("^.-()/?>", pos)
@@ -282,7 +283,7 @@ function xmls.skipInner(str, pos)
 		pos, state = state(str, pos) --> ?
 		if state == xmls.stag then --> stag
 			-- pos, state = state(str, pos) --> attr
-			pos, state = xmls.skipAttrs(str, pos) --> tagend
+			pos, state = xmls.skipAttr(str, pos) --> tagend
 			pos, state, value = state(str, pos) --> text
 			if value == true then
 				level = level + 1
@@ -337,7 +338,7 @@ xmo.__index = xmo
 xmls.xmo = xmo
 
 -- Constructor
--- You're free to put arbitrary stuff inside this table.
+-- You're free to use an instance to store arbitrary data.
 -- In particular, xmo:traceback() acts differently if path is set.
 function xmls.new(str, pos, state)
 	return setmetatable({
@@ -366,16 +367,16 @@ end
 
 -- Use at Attr
 -- Transition to Text
-function xmo:skip()
+function xmo:skipTag()
 	assert(self.state == xmls.attr)
-	return self:doState(xmls.skip)
+	return self:doState(xmls.skipTag)
 end
 
 -- Use at Attr
 -- Transition to TagEnd
-function xmo:skipAttrs()
+function xmo:skipAttr()
 	assert(self.state == xmls.attr)
-	return self:doState(xmls.skipAttrs)
+	return self:doState(xmls.skipAttr)
 end
 
 -- Use at TagEnd
@@ -383,6 +384,47 @@ end
 function xmo:skipContent()
 	assert(self.state == xmls.tagend)
 	return self:doState(xmls.skipContent)
+end
+
+-- Manual extraction
+-- =================
+
+-- Use at Attr
+-- Transition to Value and return key
+-- Transition to TagEnd and return nil
+function xmo:getKey()
+	local posA = self.pos
+	local state, posB = self()
+	if state == xmls.value then
+		return self.str:sub(posA, posB)
+	else
+		return nil
+	end
+end
+
+-- Use at Attr
+-- Transition to Value and return keyPos, keyLast
+-- Transition to TagEnd and return nil
+function xmo:getKeyPos()
+	local posA = self.pos
+	local state, posB = self()
+	if state == xmls.value then
+		return posA, posB
+	else
+		return nil
+	end
+end
+
+-- Use at Value
+-- Transition to Attr and return value
+function xmo:getValue()
+	return self.str:sub(self.pos + 1, select(2, self()))
+end
+
+-- Use at Value
+-- Transition to Attr and return valuePos, valueLast
+function xmo:getValuePos()
+	return self.pos + 1, select(2, self())
 end
 
 -- Use at TagEnd
@@ -401,62 +443,87 @@ end
 -- Iterables
 -- =========
 
--- Iterator that stops immediately
-local function nop() end
-
 -- Use at Text
 -- Return tag name at Attr
 -- Bring to Text
 -- Transition to EOF
-function xmo:roots()
+function xmo:forRoot()
 	assert(self.state == xmls.text)
-	return xmo.nextRoot, self
+	return xmo.getRoot, self
 end
 
 -- Use at Attr
 -- Return key, value at Attr
 -- Transition to TagEnd
-function xmo:attrs()
+function xmo:forAttr()
 	assert(self.state == xmls.attr)
-	return xmo.nextAttr, self
+	return xmo.getAttr, self
+end
+
+-- Use at Attr
+-- Return keypos, keylastpos, valuepos, valuelastpos at Attr
+-- Transition to TagEnd
+function xmo:forAttrPos()
+	assert(self.state == xmls.attr)
+	return xmo.getAttrPos, self
+end
+
+-- Use at Attr
+-- Return key at Attr
+-- Transition to Value
+function xmo:forKey()
+	assert(self.state == xmls.attr)
+	return xmo.getKey, self
+end
+
+-- Use at Attr
+-- Return keyPos, keyLast at Attr
+-- Transition to Value
+function xmo:forKeyPos()
+	assert(self.state == xmls.attr)
+	return xmo.getKeyPos, self
 end
 
 -- Use at TagEnd
 -- Return tag name, inner XML at Text
 -- Transition to Text
-function xmo:pairs()
+function xmo:forSimple()
 	assert(self.state == xmls.tagend)
 	local state, value = self()
-	return value and xmo.nextPair or nop, self
+	return value and xmo.getSimple or xmo.getNothing, self
 end
 
 -- Use at TagEnd
 -- Return state at ?
 -- Bring to Text
 -- Transition to Text
-function xmo:markup()
+function xmo:forMarkup()
 	assert(self.state == xmls.tagend)
 	local state, value = self()
-	return value and xmo.nextMarkup or nop, self
+	return value and xmo.getMarkup or xmo.getNothing, self
 end
 
 -- Use at TagEnd
 -- Return tag name at Attr
 -- Bring to Text
 -- Transition to Text
-function xmo:tags()
+function xmo:forTag()
 	assert(self.state == xmls.tagend)
 	local state, value = self()
-	return value and xmo.nextTag or nop, self
+	return value and xmo.getTag or xmo.getNothing, self
 end
 
 -- Iterators
 -- =========
 
 -- Use at Text
+-- Do nothing
+function xmo.getNothing() end
+
+-- Use at Text
 -- Transition to Attr and return tag name
 -- Transition to Text and return nil
-function xmo:nextRoot()
+function xmo:getRoot()
 	self() --> markup
 	while true do
 		local state = self() --> ?
@@ -471,11 +538,12 @@ end
 -- Use at Attr
 -- Transition to Attr and return key, value
 -- Transition to TagEnd and return nil
-function xmo:nextAttr()
-	local posA = self.pos
-	local state, posB = self()
+function xmo:getAttr()
+	local posA, posB, state, key
+	posA = self.pos
+	state, posB = self()
 	if state == xmls.value then
-		local key = self.str:sub(posA, posB)
+		key = self.str:sub(posA, posB)
 		posA = self.pos + 1 -- skip the quote
 		state, posB = self()
 		return key, self.str:sub(posA, posB)
@@ -484,10 +552,26 @@ function xmo:nextAttr()
 	end
 end
 
+-- Use at Attr
+-- Transition to Attr and return keypos, keylastpos, valuepos, valuelastpos
+-- Transition to TagEnd and return nil
+function xmo:getAttrPos()
+	local posA, posB, posC, posD, state
+	posA = self.pos
+	state, posB = self()
+	if state == xmls.value then
+		posC = self.pos + 1 -- skip the quote
+		state, posD = self()
+		return posA, posB, posC, posD
+	else
+		return nil
+	end
+end
+
 -- Use at Text
 -- Transition to ? and return state
 -- Transition to Text and return nil
-function xmo:nextMarkup()
+function xmo:getMarkup()
 	self() --> markup
 	local state = self() --> ?
 	if state ~= xmls.etag then
@@ -501,7 +585,7 @@ end
 -- Use at Text
 -- Transition to Attr and return tag name
 -- Transition to Text and return nil
-function xmo:nextTag()
+function xmo:getTag()
 	self() --> markup
 	while true do
 		local state = self() --> ?
@@ -517,13 +601,13 @@ end
 -- Use at Text
 -- Transition to Text and return tag name, tag content
 -- Transition to Text and return nil
-function xmo:nextPair()
+function xmo:getSimple()
 	self() --> markup
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
 			local name = self.str:sub(self.pos, select(2, self())) --> attr
-			self:doState(xmls.skipAttrs) --> tagend
+			self:doState(xmls.skipAttr) --> tagend
 			local state, value = self() --> text
 			if value == true then
 				return name, self.str:sub(self.pos, select(2, self:doState(xmls.skipInner))) --> text
@@ -537,14 +621,14 @@ function xmo:nextPair()
 	end
 end
 
--- Parsing with callbacks
--- ======================
+-- Declarative parsing
+-- ===================
 
 -- Use at TagEnd
 -- Transition to Text
 function xmo:doTags(tree)
 	assert(self.state == xmls.tagend)
-	for name in self:tags() do
+	for name in self:forTag() do
 		self:doSwitch(tree[name], name)
 	end
 end
@@ -553,7 +637,7 @@ end
 -- Transition to EOF
 function xmo:doRoots(tree)
 	assert(self.state == xmls.text)
-	for name in self:roots() do
+	for name in self:forRoot() do
 		self:doSwitch(tree[name], name)
 	end
 end
@@ -564,11 +648,11 @@ function xmo:doSwitch(action, name)
 	local case = type(action)
 	
 	if case == "nil" then
-		return self:doState(xmls.skip)
+		return self:doState(xmls.skipTag)
 		
 	elseif case == "table" then
-		self:doState(xmls.skipAttrs)
-		for name in self:tags() do
+		self:doState(xmls.skipAttr)
+		for name in self:forTag() do
 			self:doSwitch(action[name], name)
 		end
 		
