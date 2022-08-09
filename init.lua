@@ -577,19 +577,27 @@ function xmo:doSwitch(action, name)
 	end
 end
 
--- Other
--- =====
-
 -- Use at Attr
 -- Return map of attributes
 -- Transition to TagEnd
-function xmo:getAttrs(tbl)
+function xmo:getAttrMap(tbl)
 	assert(self.state == xmls.attr)
 	tbl = tbl or {}
-	for k, v in xmo.nextAttr, self do
+	for k, v in xmo.getAttr, self do
 		tbl[k] = v
 	end
 	return tbl
+end
+
+-- Other
+-- =====
+
+function xmo:cut(a, b)
+	return self.str:sub(a, b)
+end
+
+function xmo:cutEnd(a)
+	return self.str:sub(a)
 end
 
 -- Return a string in the form of [path:]line:pos
