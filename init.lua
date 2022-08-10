@@ -161,29 +161,41 @@ end
 -- Transition to TagEnd and return nil
 function xmls.attr(str, pos)
 	if str:match("^[^/>]()", pos) ~= nil then
-		local posName, posSpace = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
+		local posName, posQuote = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
 		if posName == nil then
 			return xmls.error("Malformed attribute", str, pos)
 		end
-		return posSpace, xmls.value, posName
+		local byte = str:byte(posQuote)
+		if byte == 34 then -- "
+			return posQuote + 1, xmls.value2, posName
+		elseif byte == 39 then -- '
+			return posQuote + 1, xmls.value1, posName
+		else
+			return xmls.error("Unquoted attribute value", str, pos)
+		end
 	else
 		return pos, xmls.tagend, nil
 	end
 end
 
--- Attribute value
--- Use at "'" or '"'
+-- Single-quoted attribute value
+-- Use after "'"
 -- Transition to Attr
 -- Return end of value
-function xmls.value(str, pos)
-	local posQuote, posSpace = str:byte(pos)
-	if posQuote == 34 then -- "
-		posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos + 1)
-	elseif posQuote == 39 then -- '
-		posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos + 1)
-	else
-		return xmls.error("Unquoted attribute value", str, pos)
+function xmls.value1(str, pos)
+	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos + 1)
+	if posQuote == nil then
+		return xmls.error("Unterminated attribute value", str, pos)
 	end
+	return posSpace, xmls.attr, posQuote
+end
+
+-- Double-quoted attribute value
+-- Use after '"'
+-- Transition to Attr
+-- Return end of value
+function xmls.value2(str, pos)
+	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos + 1)
 	if posQuote == nil then
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
@@ -385,7 +397,7 @@ end
 function xmo:getKey()
 	local posA = self.pos
 	local state, posB = self()
-	if state == xmls.value then
+	if state == xmls.value2 or state == xmls.value1 then
 		return self:cut(posA, posB)
 	else
 		return nil
@@ -398,7 +410,7 @@ end
 function xmo:getKeyPos()
 	local posA = self.pos
 	local state, posB = self()
-	if state == xmls.value then
+	if state == xmls.value2 or state == xmls.value1 then
 		return posA, posB
 	else
 		return nil
@@ -408,13 +420,13 @@ end
 -- Use at Value
 -- Transition to Attr and return value
 function xmo:getValue()
-	return self:cut(self.pos + 1, select(2, self()))
+	return self:cut(self.pos, select(2, self()))
 end
 
 -- Use at Value
 -- Transition to Attr and return valuePos, valueLast
 function xmo:getValuePos()
-	return self.pos + 1, select(2, self())
+	return self.pos, select(2, self())
 end
 
 -- Use at TagEnd
@@ -531,9 +543,9 @@ function xmo:getAttr()
 	local posA, posB, state, key
 	posA = self.pos
 	state, posB = self()
-	if state == xmls.value then
+	if state == xmls.value2 or state == xmls.value1 then
 		key = self:cut(posA, posB)
-		posA = self.pos + 1 -- skip the quote
+		posA = self.pos
 		state, posB = self()
 		return key, self:cut(posA, posB)
 	else
@@ -548,8 +560,8 @@ function xmo:getAttrPos()
 	local posA, posB, posC, posD, state
 	posA = self.pos
 	state, posB = self()
-	if state == xmls.value then
-		posC = self.pos + 1 -- skip the quote
+	if state == xmls.value2 or state == xmls.value1 then
+		posC = self.pos
 		state, posD = self()
 		return posA, posB, posC, posD
 	else
