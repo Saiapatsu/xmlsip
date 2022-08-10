@@ -32,23 +32,15 @@ xmls.names = {} -- [function] = string
 
 -- Plain text
 -- Use outside of markup
--- Transition to Markup
+-- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return end of text
 function xmls.text(str, pos)
-	pos = str:match("[^<]*()", pos)
-	return pos, xmls.markup, pos
-end
-
--- Markup
--- Use at "<" or EOF
--- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
--- Return nil
-function xmls.markup(str, pos)
-	-- jump over the <
-	pos = pos + 1
+	local pos0 = pos
+	
+	pos = str:match("[^<]*()", pos) + 1
 	
 	if str:match("^%w()", pos) ~= nil then -- <tag
-		return pos, xmls.stag, nil
+		return pos, xmls.stag, pos0
 	end
 	
 	local byte = str:byte(pos)
@@ -56,29 +48,29 @@ function xmls.markup(str, pos)
 	if byte == 47 then -- </
 		pos = pos + 1
 		if str:match("^%w()", pos) ~= nil then -- </tag
-			return pos, xmls.etag, nil
+			return pos, xmls.etag, pos0
 		else -- </>
-			return pos - 1, xmls.malformed, nil
+			return pos - 1, xmls.malformed, pos0
 		end
 		
 	elseif byte == 33 then -- <!
 		pos = pos + 1
 		if str:sub(pos, pos + 1) == "--" then -- <!--
-			return pos + 2, xmls.comment, nil
+			return pos + 2, xmls.comment, pos0
 		elseif str:sub(pos, pos + 6) == "[CDATA[" then -- <![CDATA[
-			return pos + 7, xmls.cdata, nil
+			return pos + 7, xmls.cdata, pos0
 		else -- <!asdf
-			return pos - 1, xmls.malformed, nil
+			return pos - 1, xmls.malformed, pos0
 		end
 		
 	elseif byte == 63 then -- <?
-		return pos + 1, xmls.pi, nil
+		return pos + 1, xmls.pi, pos0
 		
 	elseif pos >= #str then -- end of file
-		return pos - 1, xmls.eof, nil
+		return pos - 1, xmls.eof, pos0
 		
 	else -- <\
-		return pos, xmls.malformed, nil
+		return pos, xmls.malformed, pos0
 	end
 end
 
@@ -278,9 +270,7 @@ function xmls.skipInner(str, pos)
 	local level, state, value = 1, xmls.text
 	local posB
 	repeat --> text
-		pos, state = state(str, pos) --> markup
-		posB = pos
-		pos, state = state(str, pos) --> ?
+		pos, state, posB = state(str, pos) --> ?
 		if state == xmls.stag then --> stag
 			-- pos, state = state(str, pos) --> attr
 			pos, state = xmls.skipAttr(str, pos) --> tagend
@@ -524,7 +514,6 @@ function xmo.getNothing() end
 -- Transition to Attr and return tag name
 -- Transition to Text and return nil
 function xmo:getRoot()
-	self() --> markup
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
@@ -572,7 +561,6 @@ end
 -- Transition to ? and return state
 -- Transition to Text and return nil
 function xmo:getMarkup()
-	self() --> markup
 	local state = self() --> ?
 	if state ~= xmls.etag then
 		return state
@@ -586,7 +574,6 @@ end
 -- Transition to Attr and return tag name
 -- Transition to Text and return nil
 function xmo:getTag()
-	self() --> markup
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
@@ -602,7 +589,6 @@ end
 -- Transition to Text and return tag name, tag content
 -- Transition to Text and return nil
 function xmo:getSimple()
-	self() --> markup
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
