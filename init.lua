@@ -36,7 +36,7 @@ xmls.names = {} -- [function] = string
 -- Return end of text
 function xmls.text(str, pos)
 	pos = str:match("[^<]*()", pos)
-	return pos, xmls.markup, pos - 1
+	return pos, xmls.markup, pos
 end
 
 -- Markup
@@ -91,7 +91,7 @@ function xmls.stag(str, pos)
 	if posName == nil then
 		return xmls.error("Invalid tag name", str, pos)
 	end
-	return posSpace, xmls.attr, posName - 1
+	return posSpace, xmls.attr, posName
 end
 
 -- Name of ending tag
@@ -106,7 +106,7 @@ function xmls.etag(str, pos)
 	if str:byte(posSpace) ~= 62 then
 		return xmls.error("Malformed etag", str, pos)
 	end
-	return posSpace + 1, xmls.text, posName - 1
+	return posSpace + 1, xmls.text, posName
 end
 
 -- Content of CDATA section
@@ -116,7 +116,7 @@ end
 function xmls.cdata(str, pos)
 	local pos2 = str:match("%]%]>()", pos)
 	if pos2 ~= nil then
-		return pos2, xmls.text, pos2 - 4
+		return pos2, xmls.text, pos2 - 3
 	else
 		return xmls.error("Unterminated CDATA section", str, pos)
 	end
@@ -129,7 +129,7 @@ end
 function xmls.comment(str, pos)
 	local pos2 = str:match("%-%->()", pos)
 	if pos2 ~= nil then
-		return pos2, xmls.text, pos2 - 4
+		return pos2, xmls.text, pos2 - 3
 	else
 		-- unterminated
 		return xmls.error("Unterminated comment", str, pos)
@@ -145,7 +145,7 @@ end
 function xmls.pi(str, pos)
 	local pos2 = str:match("?>()", pos)
 	if pos2 ~= nil then
-		return pos2, xmls.text, pos2 - 3
+		return pos2, xmls.text, pos2 - 2
 	else
 		-- unterminated
 		return xmls.error("Unterminated processing instruction", str, pos)
@@ -173,7 +173,7 @@ function xmls.attr(str, pos)
 		if posName == nil then
 			return xmls.error("Malformed attribute", str, pos)
 		end
-		return posSpace, xmls.value, posName - 1
+		return posSpace, xmls.value, posName
 	else
 		return pos, xmls.tagend, nil
 	end
@@ -195,7 +195,7 @@ function xmls.value(str, pos)
 	if posQuote == nil then
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
-	return posSpace, xmls.attr, posQuote - 1
+	return posSpace, xmls.attr, posQuote
 end
 
 -- End of tag
@@ -297,7 +297,7 @@ function xmls.skipInner(str, pos)
 			pos, state = state(str, pos) --> text
 		end
 	until level == 0
-	return pos, state, posB - 1
+	return pos, state, posB
 end
 
 -- Error reporting supplements
@@ -396,7 +396,7 @@ function xmo:getKey()
 	local posA = self.pos
 	local state, posB = self()
 	if state == xmls.value then
-		return self.str:sub(posA, posB)
+		return self:cut(posA, posB)
 	else
 		return nil
 	end
@@ -418,7 +418,7 @@ end
 -- Use at Value
 -- Transition to Attr and return value
 function xmo:getValue()
-	return self.str:sub(self.pos + 1, select(2, self()))
+	return self:cut(self.pos + 1, select(2, self()))
 end
 
 -- Use at Value
@@ -434,7 +434,7 @@ function xmo:getInner()
 	assert(self.state == xmls.tagend)
 	local state, value = self() --> text
 	if value == true then
-		return self.str:sub(self.pos, select(2, self:doState(xmls.skipInner))) --> text
+		return self:cut(self.pos, select(2, self:doState(xmls.skipInner))) --> text
 	else
 		return ""
 	end
@@ -528,7 +528,7 @@ function xmo:getRoot()
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
-			return self.str:sub(self.pos, select(2, self())) --> attr
+			return self:cut(self.pos, select(2, self())) --> attr
 		elseif state == xmls.eof then
 			return nil
 		end
@@ -543,10 +543,10 @@ function xmo:getAttr()
 	posA = self.pos
 	state, posB = self()
 	if state == xmls.value then
-		key = self.str:sub(posA, posB)
+		key = self:cut(posA, posB)
 		posA = self.pos + 1 -- skip the quote
 		state, posB = self()
-		return key, self.str:sub(posA, posB)
+		return key, self:cut(posA, posB)
 	else
 		return nil
 	end
@@ -590,7 +590,7 @@ function xmo:getTag()
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
-			return self.str:sub(self.pos, select(2, self())) --> attr
+			return self:cut(self.pos, select(2, self())) --> attr
 		elseif state == xmls.etag then
 			self() --> text
 			return nil
@@ -606,11 +606,11 @@ function xmo:getSimple()
 	while true do
 		local state = self() --> ?
 		if state == xmls.stag then
-			local name = self.str:sub(self.pos, select(2, self())) --> attr
+			local name = self:cut(self.pos, select(2, self())) --> attr
 			self:doState(xmls.skipAttr) --> tagend
 			local state, value = self() --> text
 			if value == true then
-				return name, self.str:sub(self.pos, select(2, self:doState(xmls.skipInner))) --> text
+				return name, self:cut(self.pos, select(2, self:doState(xmls.skipInner))) --> text
 			else
 				return name, ""
 			end
@@ -677,7 +677,7 @@ end
 -- =====
 
 function xmo:cut(a, b)
-	return self.str:sub(a, b)
+	return self.str:sub(a, b - 1)
 end
 
 function xmo:cutEnd(a)
