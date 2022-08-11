@@ -183,7 +183,7 @@ end
 -- Transition to Attr
 -- Return end of value
 function xmls.value1(str, pos)
-	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos + 1)
+	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos)
 	if posQuote == nil then
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
@@ -195,7 +195,7 @@ end
 -- Transition to Attr
 -- Return end of value
 function xmls.value2(str, pos)
-	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos + 1)
+	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos)
 	if posQuote == nil then
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
