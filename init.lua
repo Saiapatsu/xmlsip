@@ -449,14 +449,27 @@ end
 
 -- Use at TagEnd
 -- Transition to Text
--- Return inner XML
+-- Return inner XML text and TagEnd's return value
 function xmo:getInner()
 	assert(self.state == xmls.tagend)
 	local state, value = self() --> text
 	if value == true then
-		return self:cut(self.pos, select(2, self:doState(xmls.skipInner))) --> text
+		return self:cut(self.pos, select(2, self:doState(xmls.skipInner))), value --> text
 	else
-		return ""
+		return "", value
+	end
+end
+
+-- Use at TagEnd
+-- Transition to Text
+-- Return inner XML start and end positions and TagEnd's return value
+function xmo:getInnerPos()
+	assert(self.state == xmls.tagend)
+	local state, value = self() --> text
+	if value == true then
+		return self.pos, select(2, self:doState(xmls.skipInner)), value --> text
+	else
+		return self.pos, self.pos, value
 	end
 end
 
