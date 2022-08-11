@@ -351,6 +351,7 @@ function xmls.new(str, pos, state)
 end
 
 -- Advance to the next state
+-- Return next state and current state's return value
 function xmo:__call()
 	local value
 	self.pos, self.state, value = self.state(self.str, self.pos)
@@ -358,10 +359,27 @@ function xmo:__call()
 end
 
 -- Use a supplemental method
+-- Return next state and method's return value
 function xmo:doState(state)
 	local value
 	self.pos, self.state, value = state(self.str, self.pos)
 	return self.state, value
+end
+
+-- Advance to the next state
+-- Return start and end positions of the current state's "value"
+function xmo:statePos(state)
+	local posA, posB = self.pos
+	self.pos, self.state, posB = (state or self.state)(self.str, self.pos)
+	return posA, posB
+end
+
+-- Advance to the next state
+-- Return the current state's string "value"
+function xmo:stateValue(state)
+	local posA, posB = self.pos
+	self.pos, self.state, posB = (state or self.state)(self.str, self.pos)
+	return self:cut(posA, posB)
 end
 
 -- Skipping irrelevant content
