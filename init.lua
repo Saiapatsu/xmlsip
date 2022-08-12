@@ -35,9 +35,8 @@ xmls.names = {} -- [function] = string
 -- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return end of text
 function xmls.text(str, pos)
-	local pos0 = pos
-	
-	pos = str:match("[^<]*()", pos) + 1
+	local pos0 = str:match("[^<]*()", pos)
+	pos = pos0 + 1
 	
 	if str:match("^%w()", pos) ~= nil then -- <tag
 		return pos, xmls.stag, pos0
