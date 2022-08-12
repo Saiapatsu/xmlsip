@@ -472,6 +472,18 @@ function xmo:getContentPos()
 	end
 end
 
+-- Use at Attr
+-- Return map of attributes
+-- Transition to TagEnd
+function xmo:getAttrMap(tbl)
+	assert(self.state == xmls.attr)
+	tbl = tbl or {}
+	for k, v in xmo.getAttr, self do
+		tbl[k] = v
+	end
+	return tbl
+end
+
 -- Iterables
 -- =========
 
@@ -687,18 +699,6 @@ function xmo:doSwitch(action, name)
 	elseif case == "function" then
 		return action(self, name)
 	end
-end
-
--- Use at Attr
--- Return map of attributes
--- Transition to TagEnd
-function xmo:getAttrMap(tbl)
-	assert(self.state == xmls.attr)
-	tbl = tbl or {}
-	for k, v in xmo.getAttr, self do
-		tbl[k] = v
-	end
-	return tbl
 end
 
 -- Other
