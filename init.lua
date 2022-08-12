@@ -449,7 +449,7 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML text and TagEnd's return value
-function xmo:getInner()
+function xmo:getContent()
 	assert(self.state == xmls.tagend)
 	local state, value = self() --> text
 	if value == true then
@@ -462,7 +462,7 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML start and end positions and TagEnd's return value
-function xmo:getInnerPos()
+function xmo:getContentPos()
 	assert(self.state == xmls.tagend)
 	local state, value = self() --> text
 	if value == true then
