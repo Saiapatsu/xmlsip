@@ -317,10 +317,10 @@ function xmls.linepos(str, pos)
 	return line, pos - lastpos + 1
 end
 
-function xmls.traceback(str, pos, path)
+function xmls.traceback(str, pos, name)
 	local line, linepos = xmls.linepos(str, pos)
-	if path then
-		return string.format("%s:%d:%d:%d", path, pos, line, linepos)
+	if name then
+		return string.format("%s:%d:%d:%d", name, pos, line, linepos)
 	else
 		return string.format("%d:%d:%d", pos, line, linepos)
 	end
@@ -340,7 +340,7 @@ xmls.xmo = xmo
 
 -- Constructor
 -- You're free to use an instance to store arbitrary data.
--- In particular, xmo:traceback() acts differently if path is set.
+-- In particular, xmo:traceback() acts differently if name is set.
 function xmls.new(str, pos, state)
 	return setmetatable({
 		str = str,
@@ -714,7 +714,7 @@ end
 
 -- Return a string in the form of [path:]line:pos
 function xmo:traceback(pos)
-	return xmls.traceback(self.str, pos or self.pos, self.path)
+	return xmls.traceback(self.str, pos or self.pos, self.name)
 end
 
 -- End
