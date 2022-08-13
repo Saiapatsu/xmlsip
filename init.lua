@@ -488,7 +488,7 @@ end
 -- =========
 
 -- Use at Text
--- Return tag name at Attr
+-- Return tag name and tag position at Attr
 -- Bring to Text
 -- Transition to EOF
 function xmo:forRoot()
@@ -529,7 +529,7 @@ function xmo:forKeyPos()
 end
 
 -- Use at TagEnd
--- Return tag name, inner XML at Text
+-- Return tag name, inner XML and tag position at Text
 -- Transition to Text
 function xmo:forSimple()
 	assert(self.state == xmls.tagend)
@@ -548,7 +548,7 @@ function xmo:forMarkup()
 end
 
 -- Use at TagEnd
--- Return tag name at Attr
+-- Return tag name and tag position at Attr
 -- Bring to Text
 -- Transition to Text
 function xmo:forTag()
@@ -565,13 +565,13 @@ end
 function xmo.getNothing() end
 
 -- Use at Text
--- Transition to Attr and return tag name
+-- Transition to Attr and return tag name and tag position
 -- Transition to Text and return nil
 function xmo:getRoot()
 	while true do
-		local state = self() --> ?
+		local state, pos = self() --> ?
 		if state == xmls.stag then
-			return self:cut(self.pos, select(2, self())) --> attr
+			return self:cut(self.pos, select(2, self())), pos --> attr
 		elseif state == xmls.eof then
 			return nil
 		end
@@ -625,13 +625,13 @@ function xmo:getMarkup()
 end
 
 -- Use at Text
--- Transition to Attr and return tag name
+-- Transition to Attr and return tag name and tag position
 -- Transition to Text and return nil
 function xmo:getTag()
 	while true do
-		local state = self() --> ?
+		local state, pos = self() --> ?
 		if state == xmls.stag then
-			return self:cut(self.pos, select(2, self())) --> attr
+			return self:cut(self.pos, select(2, self())), pos --> attr
 		elseif state == xmls.etag then
 			self() --> text
 			return nil
@@ -640,19 +640,19 @@ function xmo:getTag()
 end
 
 -- Use at Text
--- Transition to Text and return tag name, tag content
+-- Transition to Text and return tag name, tag content and tag position
 -- Transition to Text and return nil
 function xmo:getSimple()
 	while true do
-		local state = self() --> ?
+		local state, pos = self() --> ?
 		if state == xmls.stag then
 			local name = self:cut(self.pos, select(2, self())) --> attr
 			self:doState(xmls.skipAttr) --> tagend
 			local state, value = self() --> text
 			if value == true then
-				return name, self:cut(self.pos, select(2, self:doState(xmls.skipInner))) --> text
+				return name, self:cut(self.pos, select(2, self:doState(xmls.skipInner))), pos --> text
 			else
-				return name, ""
+				return name, "", pos
 			end
 		elseif state == xmls.etag then
 			self() --> text
@@ -668,8 +668,8 @@ end
 -- Transition to Text
 function xmo:doTags(tree)
 	assert(self.state == xmls.tagend)
-	for name in self:forTag() do
-		self:doSwitch(tree[name], name)
+	for name, pos in self:forTag() do
+		self:doSwitch(tree[name], name, pos)
 	end
 end
 
@@ -677,8 +677,8 @@ end
 -- Transition to EOF
 function xmo:doRoots(tree)
 	assert(self.state == xmls.text)
-	for name in self:forRoot() do
-		self:doSwitch(tree[name], name)
+	for name, pos in self:forRoot() do
+		self:doSwitch(tree[name], name, pos)
 	end
 end
 
@@ -692,8 +692,8 @@ function xmo:doSwitch(action, name)
 		
 	elseif case == "table" then
 		self:doState(xmls.skipAttr)
-		for name in self:forTag() do
-			self:doSwitch(action[name], name)
+		for name, pos in self:forTag() do
+			self:doSwitch(action[name], name, pos)
 		end
 		
 	elseif case == "function" then
