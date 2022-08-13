@@ -27,19 +27,16 @@ local xmls = {}
 -- States
 -- ======
 
--- Map state to state name
-xmls.names = {} -- [function] = string
-
 -- Plain text
 -- Use outside of markup
 -- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return end of text
-function xmls.text(str, pos)
+function xmls.TEXT(str, pos)
 	local pos0 = str:match("[^<]*()", pos)
 	pos = pos0 + 1
 	
 	if str:match("^%w()", pos) ~= nil then -- <tag
-		return pos, xmls.stag, pos0
+		return pos, xmls.STAG, pos0
 	end
 	
 	local byte = str:byte(pos)
@@ -47,29 +44,29 @@ function xmls.text(str, pos)
 	if byte == 47 then -- </
 		pos = pos + 1
 		if str:match("^%w()", pos) ~= nil then -- </tag
-			return pos, xmls.etag, pos0
+			return pos, xmls.ETAG, pos0
 		else -- </>
-			return pos - 1, xmls.malformed, pos0
+			return pos - 1, xmls.MALFORMED, pos0
 		end
 		
 	elseif byte == 33 then -- <!
 		pos = pos + 1
 		if str:sub(pos, pos + 1) == "--" then -- <!--
-			return pos + 2, xmls.comment, pos0
+			return pos + 2, xmls.COMMENT, pos0
 		elseif str:sub(pos, pos + 6) == "[CDATA[" then -- <![CDATA[
-			return pos + 7, xmls.cdata, pos0
+			return pos + 7, xmls.CDATA, pos0
 		else -- <!asdf
-			return pos - 1, xmls.malformed, pos0
+			return pos - 1, xmls.MALFORMED, pos0
 		end
 		
 	elseif byte == 63 then -- <?
-		return pos + 1, xmls.pi, pos0
+		return pos + 1, xmls.PI, pos0
 		
 	elseif pos >= #str then -- end of file
-		return pos - 1, xmls.eof, pos0
+		return pos - 1, xmls.EOF, pos0
 		
 	else -- <\
-		return pos, xmls.malformed, pos0
+		return pos, xmls.MALFORMED, pos0
 	end
 end
 
@@ -77,19 +74,19 @@ end
 -- Use at name character after "<"
 -- Transition to Attr
 -- Return end of name
-function xmls.stag(str, pos)
+function xmls.STAG(str, pos)
 	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
 	if posName == nil then
 		return xmls.error("Invalid tag name", str, pos)
 	end
-	return posSpace, xmls.attr, posName
+	return posSpace, xmls.ATTR, posName
 end
 
 -- Name of ending tag
 -- Use at name character after "</"
 -- Transition to Text
 -- Return end of name
-function xmls.etag(str, pos)
+function xmls.ETAG(str, pos)
 	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
 	if posName == nil then
 		return xmls.error("Invalid etag name", str, pos)
@@ -97,17 +94,17 @@ function xmls.etag(str, pos)
 	if str:byte(posSpace) ~= 62 then
 		return xmls.error("Malformed etag", str, pos)
 	end
-	return posSpace + 1, xmls.text, posName
+	return posSpace + 1, xmls.TEXT, posName
 end
 
 -- Content of CDATA section
 -- Use after "<![CDATA["
 -- Transition to Text
 -- Return end of content
-function xmls.cdata(str, pos)
+function xmls.CDATA(str, pos)
 	local pos2 = str:match("%]%]>()", pos)
 	if pos2 ~= nil then
-		return pos2, xmls.text, pos2 - 3
+		return pos2, xmls.TEXT, pos2 - 3
 	else
 		return xmls.error("Unterminated CDATA section", str, pos)
 	end
@@ -117,15 +114,15 @@ end
 -- Use after "<!--"
 -- Transition to Text
 -- Return end of content
-function xmls.comment(str, pos)
+function xmls.COMMENT(str, pos)
 	local pos2 = str:match("%-%->()", pos)
 	if pos2 ~= nil then
-		return pos2, xmls.text, pos2 - 3
+		return pos2, xmls.TEXT, pos2 - 3
 	else
 		-- unterminated
 		return xmls.error("Unterminated comment", str, pos)
 		-- pos = #str
-		-- return pos, xmls.text, pos
+		-- return pos, xmls.TEXT, pos
 	end
 end
 
@@ -133,15 +130,15 @@ end
 -- Use after "<?"
 -- Transition to Text
 -- Return end of content
-function xmls.pi(str, pos)
+function xmls.PI(str, pos)
 	local pos2 = str:match("?>()", pos)
 	if pos2 ~= nil then
-		return pos2, xmls.text, pos2 - 2
+		return pos2, xmls.TEXT, pos2 - 2
 	else
 		-- unterminated
 		return xmls.error("Unterminated processing instruction", str, pos)
 		-- pos = #str
-		-- return pos, xmls.text, pos
+		-- return pos, xmls.TEXT, pos
 	end
 end
 
@@ -149,7 +146,7 @@ end
 -- Use after "<"
 -- Transition to Text
 -- Return nil
-function xmls.malformed(str, pos)
+function xmls.MALFORMED(str, pos)
 	-- zip to after >
 	return xmls.error("Malformed tag", str, pos)
 end
@@ -158,7 +155,7 @@ end
 -- Use at attribute name or ">" or "/>"
 -- Transition to Value and return end of name
 -- Transition to TagEnd and return nil
-function xmls.attr(str, pos)
+function xmls.ATTR(str, pos)
 	if str:match("^[^/>]()", pos) ~= nil then
 		local posName, posQuote = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
 		if posName == nil then
@@ -166,14 +163,14 @@ function xmls.attr(str, pos)
 		end
 		local byte = str:byte(posQuote)
 		if byte == 34 then -- "
-			return posQuote + 1, xmls.value2, posName
+			return posQuote + 1, xmls.VALUE2, posName
 		elseif byte == 39 then -- '
-			return posQuote + 1, xmls.value1, posName
+			return posQuote + 1, xmls.VALUE1, posName
 		else
 			return xmls.error("Unquoted attribute value", str, pos)
 		end
 	else
-		return pos, xmls.tagend, nil
+		return pos, xmls.TAGEND, nil
 	end
 end
 
@@ -181,39 +178,39 @@ end
 -- Use after "'"
 -- Transition to Attr
 -- Return end of value
-function xmls.value1(str, pos)
+function xmls.VALUE1(str, pos)
 	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos)
 	if posQuote == nil then
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
-	return posSpace, xmls.attr, posQuote
+	return posSpace, xmls.ATTR, posQuote
 end
 
 -- Double-quoted attribute value
 -- Use after '"'
 -- Transition to Attr
 -- Return end of value
-function xmls.value2(str, pos)
+function xmls.VALUE2(str, pos)
 	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos)
 	if posQuote == nil then
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
-	return posSpace, xmls.attr, posQuote
+	return posSpace, xmls.ATTR, posQuote
 end
 
 -- End of tag
 -- Use at ">" or "/>"
 -- Transition to Text
 -- Return true if opening tag, false if self-closing
-function xmls.tagend(str, pos)
-	-- warning: xmls.attr will transition to this if it runs into the end of file
+function xmls.TAGEND(str, pos)
+	-- warning: xmls.ATTR will transition to this if it runs into the end of file
 	-- c port?: return enum instead of bool
 	local byte = str:byte(pos)
 	if byte == 62 then -- >
-		return pos + 1, xmls.text, true
+		return pos + 1, xmls.TEXT, true
 	elseif byte == 47 then -- /
 		if str:byte(pos + 1) == 62 then -- >
-			return pos + 2, xmls.text, false
+			return pos + 2, xmls.TEXT, false
 		end
 	end
 	return xmls.error("Malformed tag end", str, pos)
@@ -222,14 +219,16 @@ end
 -- End of file
 -- Do not use
 -- Throws an error, shouldn't have read any further
-function xmls.eof(str, pos)
+function xmls.EOF(str, pos)
 	return xmls.error("Exceeding end of file", str, pos)
 end
 
--- Populate xmls.names
+-- Map state to state name
+local names = {} -- [function] = string
 for k,v in pairs(xmls) do
-	xmls.names[v] = k
+	names[v] = k
 end
+xmls.names = names
 
 -- Supplementary methods
 -- =====================
@@ -254,9 +253,9 @@ function xmls.skipAttr(str, pos)
 	-- end
 	pos = str:match("^[^>]*()", pos)
 	if str:byte(pos - 1) == 47 then
-		return pos - 1, xmls.tagend
+		return pos - 1, xmls.TAGEND
 	else
-		return pos, xmls.tagend
+		return pos, xmls.TAGEND
 	end
 end
 
@@ -265,7 +264,7 @@ end
 -- Transition to Text
 -- Return value is not useful
 function xmls.skipContent(str, pos)
-	local pos, state, value = xmls.tagend(str, pos) --> text
+	local pos, state, value = xmls.TAGEND(str, pos) --> text
 	if value == true then
 		return xmls.skipInner(str, pos) --> text
 	else
@@ -278,11 +277,11 @@ end
 -- Transition to Text
 -- Return end of content just before the end tag
 function xmls.skipInner(str, pos)
-	local level, state, value = 1, xmls.text
+	local level, state, value = 1, xmls.TEXT
 	local posB
 	repeat --> text
 		pos, state, posB = state(str, pos) --> ?
-		if state == xmls.stag then --> stag
+		if state == xmls.STAG then --> stag
 			-- pos, state = state(str, pos) --> attr
 			pos, state = xmls.skipAttr(str, pos) --> tagend
 			pos, state, value = state(str, pos) --> text
@@ -290,7 +289,7 @@ function xmls.skipInner(str, pos)
 				level = level + 1
 			end
 			
-		elseif state == xmls.etag then --> etag
+		elseif state == xmls.ETAG then --> etag
 			level = level - 1
 			pos, state = state(str, pos) --> text
 			
@@ -345,7 +344,7 @@ function xmls.new(str, pos, state)
 	return setmetatable({
 		str = str,
 		pos = pos or 1,
-		state = state or xmls.text,
+		state = state or xmls.TEXT,
 	}, xmo)
 end
 
@@ -387,21 +386,21 @@ end
 -- Use at Attr
 -- Transition to Text
 function xmo:skipTag()
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	return self:doState(xmls.skipTag)
 end
 
 -- Use at Attr
 -- Transition to TagEnd
 function xmo:skipAttr()
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	return self:doState(xmls.skipAttr)
 end
 
 -- Use at TagEnd
 -- Transition to Text
 function xmo:skipContent()
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	return self:doState(xmls.skipContent)
 end
 
@@ -414,7 +413,7 @@ end
 function xmo:getKey()
 	local posA = self.pos
 	local state, posB = self()
-	if state == xmls.value2 or state == xmls.value1 then
+	if state == xmls.VALUE2 or state == xmls.VALUE1 then
 		return self:cut(posA, posB)
 	else
 		return nil
@@ -427,7 +426,7 @@ end
 function xmo:getKeyPos()
 	local posA = self.pos
 	local state, posB = self()
-	if state == xmls.value2 or state == xmls.value1 then
+	if state == xmls.VALUE2 or state == xmls.VALUE1 then
 		return posA, posB
 	else
 		return nil
@@ -450,7 +449,7 @@ end
 -- Transition to Text
 -- Return inner XML text and TagEnd's return value
 function xmo:getContent()
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	local state, value = self() --> text
 	if value == true then
 		return self:cut(self.pos, select(2, self:doState(xmls.skipInner))), value --> text
@@ -463,7 +462,7 @@ end
 -- Transition to Text
 -- Return inner XML start and end positions and TagEnd's return value
 function xmo:getContentPos()
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	local state, value = self() --> text
 	if value == true then
 		return self.pos, select(2, self:doState(xmls.skipInner)), value --> text
@@ -476,7 +475,7 @@ end
 -- Return map of attributes
 -- Transition to TagEnd
 function xmo:getAttrMap(tbl)
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	tbl = tbl or {}
 	for k, v in xmo.getAttr, self do
 		tbl[k] = v
@@ -492,7 +491,7 @@ end
 -- Bring to Text
 -- Transition to EOF
 function xmo:forRoot()
-	assert(self.state == xmls.text)
+	assert(self.state == xmls.TEXT)
 	return xmo.getRoot, self
 end
 
@@ -500,7 +499,7 @@ end
 -- Return key, value at Attr
 -- Transition to TagEnd
 function xmo:forAttr()
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	return xmo.getAttr, self
 end
 
@@ -508,7 +507,7 @@ end
 -- Return keypos, keylastpos, valuepos, valuelastpos at Attr
 -- Transition to TagEnd
 function xmo:forAttrPos()
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	return xmo.getAttrPos, self
 end
 
@@ -516,7 +515,7 @@ end
 -- Return key at Attr
 -- Transition to Value
 function xmo:forKey()
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	return xmo.getKey, self
 end
 
@@ -524,7 +523,7 @@ end
 -- Return keyPos, keyLast at Attr
 -- Transition to Value
 function xmo:forKeyPos()
-	assert(self.state == xmls.attr)
+	assert(self.state == xmls.ATTR)
 	return xmo.getKeyPos, self
 end
 
@@ -532,7 +531,7 @@ end
 -- Return tag name, inner XML and tag position at Text
 -- Transition to Text
 function xmo:forSimple()
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	local state, value = self()
 	return value and xmo.getSimple or xmo.getNothing, self
 end
@@ -542,7 +541,7 @@ end
 -- Bring to Text
 -- Transition to Text
 function xmo:forMarkup()
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	local state, value = self()
 	return value and xmo.getMarkup or xmo.getNothing, self
 end
@@ -552,7 +551,7 @@ end
 -- Bring to Text
 -- Transition to Text
 function xmo:forTag()
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	local state, value = self()
 	return value and xmo.getTag or xmo.getNothing, self
 end
@@ -570,9 +569,9 @@ function xmo.getNothing() end
 function xmo:getRoot()
 	while true do
 		local state, pos = self() --> ?
-		if state == xmls.stag then
+		if state == xmls.STAG then
 			return self:cut(self.pos, select(2, self())), pos --> attr
-		elseif state == xmls.eof then
+		elseif state == xmls.EOF then
 			return nil
 		end
 	end
@@ -585,7 +584,7 @@ function xmo:getAttr()
 	local posA, posB, state, key
 	posA = self.pos
 	state, posB = self()
-	if state == xmls.value2 or state == xmls.value1 then
+	if state == xmls.VALUE2 or state == xmls.VALUE1 then
 		key = self:cut(posA, posB)
 		posA = self.pos
 		state, posB = self()
@@ -602,7 +601,7 @@ function xmo:getAttrPos()
 	local posA, posB, posC, posD, state
 	posA = self.pos
 	state, posB = self()
-	if state == xmls.value2 or state == xmls.value1 then
+	if state == xmls.VALUE2 or state == xmls.VALUE1 then
 		posC = self.pos
 		state, posD = self()
 		return posA, posB, posC, posD
@@ -616,7 +615,7 @@ end
 -- Transition to Text and return nil
 function xmo:getMarkup()
 	local state = self() --> ?
-	if state ~= xmls.etag then
+	if state ~= xmls.ETAG then
 		return state
 	else
 		self() --> text
@@ -630,9 +629,9 @@ end
 function xmo:getTag()
 	while true do
 		local state, pos = self() --> ?
-		if state == xmls.stag then
+		if state == xmls.STAG then
 			return self:cut(self.pos, select(2, self())), pos --> attr
-		elseif state == xmls.etag then
+		elseif state == xmls.ETAG then
 			self() --> text
 			return nil
 		end
@@ -645,7 +644,7 @@ end
 function xmo:getSimple()
 	while true do
 		local state, pos = self() --> ?
-		if state == xmls.stag then
+		if state == xmls.STAG then
 			local name = self:cut(self.pos, select(2, self())) --> attr
 			self:doState(xmls.skipAttr) --> tagend
 			local state, value = self() --> text
@@ -654,7 +653,7 @@ function xmo:getSimple()
 			else
 				return name, "", pos
 			end
-		elseif state == xmls.etag then
+		elseif state == xmls.ETAG then
 			self() --> text
 			return nil
 		end
@@ -667,7 +666,7 @@ end
 -- Use at TagEnd
 -- Transition to Text
 function xmo:doTags(tree)
-	assert(self.state == xmls.tagend)
+	assert(self.state == xmls.TAGEND)
 	for name, pos in self:forTag() do
 		self:doSwitch(tree[name], name, pos)
 	end
@@ -676,7 +675,7 @@ end
 -- Use at Start
 -- Transition to EOF
 function xmo:doRoots(tree)
-	assert(self.state == xmls.text)
+	assert(self.state == xmls.TEXT)
 	for name, pos in self:forRoot() do
 		self:doSwitch(tree[name], name, pos)
 	end
