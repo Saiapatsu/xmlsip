@@ -300,36 +300,6 @@ function xmls:SKIPINNER(str, pos)
 	return pos, state, posB
 end
 
--- Error reporting supplements
--- ===========================
-
--- Get line number and position in line from string and position in string
-function xmls.linepos(str, pos)
-	local line = 0
-	local lastpos = 1
-	-- find first line break that's after pos
-	for linestart in string.gmatch(str, "()[^\n]*") do
-		if pos < linestart then break end
-		lastpos = linestart
-		line = line + 1
-	end
-	return line, pos - lastpos + 1
-end
-
-function xmls.locate(str, pos, name)
-	local line, linepos = xmls.linepos(str, pos)
-	if name then
-		return string.format("%s:%d:%d:%d", name, pos, line, linepos)
-	else
-		return string.format("%d:%d:%d", pos, line, linepos)
-	end
-end
-
-function xmls.error(reason, str, filepos)
-	local line, linepos = xmls.linepos(str, filepos)
-	return error(debug.traceback(string.format("%s at %d:%d:%d", reason, filepos, line, linepos), 2), 2)
-end
-
 -- Parsing state object
 -- ====================
 
@@ -712,6 +682,36 @@ end
 -- Return a string in the form of [path:]line:pos
 function xmls:traceback(pos)
 	return xmls.locate(self.str, pos or self.pos, self.name)
+end
+
+-- Error reporting supplements
+-- ===========================
+
+-- Get line number and position in line from string and position in string
+function xmls.linepos(str, pos)
+	local line = 0
+	local lastpos = 1
+	-- find first line break that's after pos
+	for linestart in string.gmatch(str, "()[^\n]*") do
+		if pos < linestart then break end
+		lastpos = linestart
+		line = line + 1
+	end
+	return line, pos - lastpos + 1
+end
+
+function xmls.locate(str, pos, name)
+	local line, linepos = xmls.linepos(str, pos)
+	if name then
+		return string.format("%s:%d:%d:%d", name, pos, line, linepos)
+	else
+		return string.format("%d:%d:%d", pos, line, linepos)
+	end
+end
+
+function xmls.error(reason, str, filepos)
+	local line, linepos = xmls.linepos(str, filepos)
+	return error(debug.traceback(string.format("%s at %d:%d:%d", reason, filepos, line, linepos), 2), 2)
 end
 
 -- End
