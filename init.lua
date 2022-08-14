@@ -403,21 +403,21 @@ end
 -- Use at Attr
 -- Transition to Text
 function xmls:skipTag()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "skipTag")
 	return self:dostate(self.SKIPTAG)
 end
 
 -- Use at Attr
 -- Transition to TagEnd
 function xmls:skipAttr()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "skipAttr")
 	return self:dostate(self.SKIPATTR)
 end
 
 -- Use at TagEnd
 -- Transition to Text
 function xmls:skipContent()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "skipContent")
 	return self:dostate(self.SKIPCONTENT)
 end
 
@@ -481,7 +481,7 @@ end
 -- Transition to Text
 -- Return inner XML text and TagEnd's return value
 function xmls:getInnerXML()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "getInnerXML")
 	local state, value = self() --> text
 	if value == true then
 		return self:stateValue(self.SKIPINNER), value --> text
@@ -494,7 +494,7 @@ end
 -- Transition to Text
 -- Return inner XML start and end positions and TagEnd's return value
 function xmls:getInnerPos()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "getInnerPos")
 	local state, value = self() --> text
 	if value == true then
 		local a, b = self:statePos(self.SKIPINNER)
@@ -508,7 +508,7 @@ end
 -- Transition to Text
 -- Return inner text and TagEnd's return value
 function xmls:getInnerText()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "getInnerText")
 	local state, value = self() --> text
 	if value == true then
 		local rope = {}
@@ -541,7 +541,7 @@ end
 -- Bring to Text
 -- Transition to EOF
 function xmls:forRoot()
-	assert(self.state == self.TEXT)
+	self:assertState(self.TEXT, "forRoot")
 	return self.getRoot, self
 end
 
@@ -549,7 +549,7 @@ end
 -- Return key, value at Attr
 -- Transition to TagEnd
 function xmls:forAttr()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "forAttr")
 	return self.getAttr, self
 end
 
@@ -557,7 +557,7 @@ end
 -- Return key, value at Attr
 -- Transition to TagEnd
 function xmls:forAttrRaw()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "forAttrRaw")
 	return self.getAttrRaw, self
 end
 
@@ -565,7 +565,7 @@ end
 -- Return keypos, keylastpos, valuepos, valuelastpos at Attr
 -- Transition to TagEnd
 function xmls:forAttrPos()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "forAttrPos")
 	return self.getAttrPos, self
 end
 
@@ -573,7 +573,7 @@ end
 -- Return key at Attr
 -- Transition to Value
 function xmls:forKey()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "forKey")
 	return self.getKey, self
 end
 
@@ -581,7 +581,7 @@ end
 -- Return keyPos, keyLast at Attr
 -- Transition to Value
 function xmls:forKeyPos()
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "forKeyPos")
 	return self.getKeyPos, self
 end
 
@@ -589,7 +589,7 @@ end
 -- Return tag name, tag text content, whether it was an opening tag and tag position at Text
 -- Transition to Text
 function xmls:forSimple()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "forSimple")
 	local state, value = self()
 	return value and self.getSimple or self.getNothing, self
 end
@@ -598,7 +598,7 @@ end
 -- Return tag name, tag XML content, whether it was an opening tag and tag position at Text
 -- Transition to Text
 function xmls:forSimpleXML()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "forSimpleXML")
 	local state, value = self()
 	return value and self.getSimpleXML or self.getNothing, self
 end
@@ -607,7 +607,7 @@ end
 -- Return tag name, tag content start and end positions, whether it was an opening tag and tag position at Text
 -- Transition to Text
 function xmls:forSimplePos()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "forSimplePos")
 	local state, value = self()
 	return value and self.getSimplePos or self.getNothing, self
 end
@@ -617,7 +617,7 @@ end
 -- Bring to Text
 -- Transition to Text
 function xmls:forMarkup()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "forMarkup")
 	local state, value = self()
 	return value and self.getMarkup or self.getNothing, self
 end
@@ -627,7 +627,7 @@ end
 -- Bring to Text
 -- Transition to Text
 function xmls:forTag()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "forTag")
 	local state, value = self()
 	return value and self.getTag or self.getNothing, self
 end
@@ -636,7 +636,7 @@ end
 -- Return level, text and position at ?
 -- Transition to Text
 function xmls:forText()
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "forText")
 	local state, value = self()
 	return value and self.getText or self.getNothing, self, 1
 end
@@ -973,6 +973,12 @@ end
 function xmls.error(reason, str, filepos)
 	local line, linepos = xmls.linepos(str, filepos)
 	return error(debug.traceback(string.format("%s at %d:%d:%d", reason, filepos, line, linepos), 2), 2)
+end
+
+function xmls:assertState(state, name)
+	if self.state ~= state then
+		return self.error(string.format("%s called at %s instead of %s", name, self.names[self.state], self.names[state]), self.str, self.pos)
+	end
 end
 
 -- End
