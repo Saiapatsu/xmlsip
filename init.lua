@@ -900,6 +900,14 @@ function xmls:doSwitch(action, name, pos)
 	end
 end
 
+-- Generate function that calls doDescendants
+function xmls:toDescendants(root)
+	return function(xml)
+		xml:skipAttr()
+		return xml:doDescendants(root)
+	end
+end
+
 -- Other
 -- =====
 
