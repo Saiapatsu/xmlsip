@@ -836,6 +836,47 @@ function xmls:doRoots(tree)
 	end
 end
 
+-- Use at TagEnd
+-- Transition to Text
+-- A function can return true and leave content unconsumed to allow the search to continue
+function xmls:doDescendants(tree)
+	assert(self.state == self.TAGEND)
+	self() --> text
+	local level = 1
+	repeat
+		local name, pos = self:getTag() --> attr
+		if name ~= nil then
+			local action = tree[name]
+			local case = type(action)
+			
+			if case == "table" then
+				self:dostate(self.SKIPATTR) --> tagend
+				for name, pos in self:forTag() do
+					self:doSwitch(action[name], name, pos)
+				end --> text
+				-- consumed
+				
+			elseif case == "function" then
+				if action(self, name) == true then --> tagend
+					-- not consumed
+					level = level + 1
+					self() --> text
+				end
+				-- else --> text
+				
+			else
+				-- not consumed
+				self:dostate(self.SKIPATTR) --> tagend
+				if select(2, self()) then --> text
+					level = level + 1
+				end
+			end
+		else
+			level = level - 1
+		end
+	until level == 0
+end
+
 -- Use at Attr
 -- Transition to Text
 function xmls:doSwitch(action, name)
