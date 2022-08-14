@@ -818,12 +818,15 @@ end
 -- Declarative parsing
 -- ===================
 
+-- Unique token/atom for default tag handler
+xmls.DEFAULT = function() end
+
 -- Use at TagEnd
 -- Transition to Text
 function xmls:doTags(tree)
 	assert(self.state == self.TAGEND)
 	for name, pos in self:forTag() do
-		self:doSwitch(tree[name], name, pos)
+		self:doSwitch(tree[name] or tree[xmls.DEFAULT], name, pos)
 	end
 end
 
@@ -832,7 +835,7 @@ end
 function xmls:doRoots(tree)
 	assert(self.state == self.TEXT)
 	for name, pos in self:forRoot() do
-		self:doSwitch(tree[name], name, pos)
+		self:doSwitch(tree[name] or tree[xmls.DEFAULT], name, pos)
 	end
 end
 
@@ -846,7 +849,7 @@ function xmls:doDescendants(tree)
 	repeat
 		local name, pos = self:getTag() --> attr
 		if name ~= nil then
-			local action = tree[name]
+			local action = tree[name] or tree[xmls.DEFAULT]
 			local case = type(action)
 			
 			if case == "table" then
@@ -859,8 +862,9 @@ function xmls:doDescendants(tree)
 			elseif case == "function" then
 				if action(self, name, pos) == true then --> tagend
 					-- not consumed
-					level = level + 1
-					self() --> text
+					if select(2, self()) then --> text
+						level = level + 1
+					end
 				end
 				-- else --> text
 				
