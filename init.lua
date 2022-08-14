@@ -813,6 +813,8 @@ function xmls:getText(level)
 		return level, entity, posA, posB
 	elseif state == self.TEXT or state == self.CDATA then
 		-- good!
+	elseif state == self.EOF then
+		return
 	else
 		-- skip
 		self() --> text
