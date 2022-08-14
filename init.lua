@@ -857,7 +857,7 @@ function xmls:doDescendants(tree)
 				-- consumed
 				
 			elseif case == "function" then
-				if action(self, name) == true then --> tagend
+				if action(self, name, pos) == true then --> tagend
 					-- not consumed
 					level = level + 1
 					self() --> text
@@ -879,7 +879,7 @@ end
 
 -- Use at Attr
 -- Transition to Text
-function xmls:doSwitch(action, name)
+function xmls:doSwitch(action, name, pos)
 	local case = type(action)
 	
 	if case == "nil" then
@@ -892,7 +892,7 @@ function xmls:doSwitch(action, name)
 		end
 		
 	elseif case == "function" then
-		return action(self, name)
+		return action(self, name, pos)
 	end
 end
 
