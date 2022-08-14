@@ -511,11 +511,16 @@ function xmls:getInnerText()
 	self:assertState(self.TAGEND, "getInnerText")
 	local state, value = self() --> text
 	if value == true then
-		local rope = {}
-		for l, text in self.getText, self, 1 do
+		local text = select(2, self:getText(1))
+		if self.state == self.ETAG then
+			self()
+			return text, value
+		end
+		local rope = {text}
+		for _, text in self.getText, self, 1 do
 			table.insert(rope, text)
 		end
-		return table.concat(rope)
+		return table.concat(rope), value
 	else
 		return "", value
 	end
