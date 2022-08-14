@@ -83,7 +83,7 @@ local function makeEntity(state)
 	return function(self, str, pos)
 		local pos2 = str:match("^[#%w]+();", pos)
 		if pos2 == nil then
-			return xmls.error("Bad entity", str, pos)
+			return self.error("Bad entity", str, pos)
 		end
 		return pos2 + 1, self[state], pos2
 	end
@@ -99,7 +99,7 @@ xmls.VALUE2ENT = makeEntity("VALUE2")
 function xmls:STAG(str, pos)
 	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
 	if posName == nil then
-		return xmls.error("Invalid tag name", str, pos)
+		return self.error("Invalid tag name", str, pos)
 	end
 	return posSpace, self.ATTR, posName
 end
@@ -111,10 +111,10 @@ end
 function xmls:ETAG(str, pos)
 	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
 	if posName == nil then
-		return xmls.error("Invalid etag name", str, pos)
+		return self.error("Invalid etag name", str, pos)
 	end
 	if str:byte(posSpace) ~= 62 then
-		return xmls.error("Malformed etag", str, pos)
+		return self.error("Malformed etag", str, pos)
 	end
 	return posSpace + 1, self.TEXT, posName
 end
@@ -128,7 +128,7 @@ function xmls:CDATA(str, pos)
 	if pos2 ~= nil then
 		return pos2, self.TEXT, pos2 - 3
 	else
-		return xmls.error("Unterminated CDATA section", str, pos)
+		return self.error("Unterminated CDATA section", str, pos)
 	end
 end
 
@@ -142,7 +142,7 @@ function xmls:COMMENT(str, pos)
 		return pos2, self.TEXT, pos2 - 3
 	else
 		-- unterminated
-		return xmls.error("Unterminated comment", str, pos)
+		return self.error("Unterminated comment", str, pos)
 		-- pos = #str
 		-- return pos, self.TEXT, pos
 	end
@@ -158,7 +158,7 @@ function xmls:PI(str, pos)
 		return pos2, self.TEXT, pos2 - 2
 	else
 		-- unterminated
-		return xmls.error("Unterminated processing instruction", str, pos)
+		return self.error("Unterminated processing instruction", str, pos)
 		-- pos = #str
 		-- return pos, self.TEXT, pos
 	end
@@ -170,7 +170,7 @@ end
 -- Return nil
 function xmls:MALFORMED(str, pos)
 	-- zip to after >
-	return xmls.error("Malformed tag", str, pos)
+	return self.error("Malformed tag", str, pos)
 end
 
 -- Attribute name or end of tag (end of attribute list).
@@ -181,7 +181,7 @@ function xmls:ATTR(str, pos)
 	if str:match("^[^/>]()", pos) ~= nil then
 		local posName, posQuote = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
 		if posName == nil then
-			return xmls.error("Malformed attribute", str, pos)
+			return self.error("Malformed attribute", str, pos)
 		end
 		local byte = str:byte(posQuote)
 		if byte == 34 then -- "
@@ -189,7 +189,7 @@ function xmls:ATTR(str, pos)
 		elseif byte == 39 then -- '
 			return posQuote + 1, self.VALUE1, posName
 		else
-			return xmls.error("Unquoted attribute value", str, pos)
+			return self.error("Unquoted attribute value", str, pos)
 		end
 	else
 		return pos, self.TAGEND, nil
@@ -208,7 +208,7 @@ function xmls:VALUE1(str, pos)
 	elseif byte == 39 then -- '
 		return str:match("^[ \t\r\n]*()", posSpecial + 1), self.ATTR, posSpecial
 	else
-		return xmls.error("Unterminated attribute value", str, pos)
+		return self.error("Unterminated attribute value", str, pos)
 	end
 end
 
@@ -224,7 +224,7 @@ function xmls:VALUE2(str, pos)
 	elseif byte == 34 then -- "
 		return str:match("^[ \t\r\n]*()", posSpecial + 1), self.ATTR, posSpecial
 	else
-		return xmls.error("Unterminated attribute value", str, pos)
+		return self.error("Unterminated attribute value", str, pos)
 	end
 end
 
@@ -243,14 +243,14 @@ function xmls:TAGEND(str, pos)
 			return pos + 2, self.TEXT, false
 		end
 	end
-	return xmls.error("Malformed tag end", str, pos)
+	return self.error("Malformed tag end", str, pos)
 end
 
 -- End of file
 -- Do not use
 -- Throws an error, shouldn't have read any further
 function xmls:EOF(str, pos)
-	return xmls.error("Exceeding end of file", str, pos)
+	return self.error("Exceeding end of file", str, pos)
 end
 
 -- Map state to state name
@@ -279,7 +279,7 @@ function xmls:SKIPATTR(str, pos)
 	-- local pos2 = str:match("^[^/>]*()", pos)
 	-- local pos2 = str:match("^.-()/?>", pos)
 	-- if pos2 == nil then
-		-- xmls.error("Unterminated start tag", str, pos2)
+		-- self.error("Unterminated start tag", str, pos2)
 	-- end
 	pos = str:match("^[^>]*()", pos)
 	if str:byte(pos - 1) == 47 then
@@ -292,7 +292,7 @@ end
 function xmls:SKIPVALUE1(str, pos)
 	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos)
 	if posQuote == nil then
-		return xmls.error("Unterminated attribute value", str, pos)
+		return self.error("Unterminated attribute value", str, pos)
 	end
 	return posSpace, self.ATTR, posQuote
 end
@@ -300,7 +300,7 @@ end
 function xmls:SKIPVALUE2(str, pos)
 	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos)
 	if posQuote == nil then
-		return xmls.error("Unterminated attribute value", str, pos)
+		return self.error("Unterminated attribute value", str, pos)
 	end
 	return posSpace, self.ATTR, posQuote
 end
@@ -455,7 +455,7 @@ function xmls:getValue()
 		table.insert(rope, self:stateValue())
 		if self.state == self.ATTR then return table.concat(rope) end
 		local entity = self.decodeEntity(self:stateValue())
-		if entity == nil then return xmls.error("Unrecognized entity", str, pos) end
+		if entity == nil then return self.error("Unrecognized entity", str, pos) end
 		table.insert(rope, entity)
 	end
 end
@@ -736,12 +736,12 @@ end
 -- Transition to Text and return nil
 function xmls:getText(level)
 	local state = self.state
-	if state == xmls.STAG then
+	if state == self.STAG then
 		self:dostate(self.SKIPATTR) --> tagend
 		if select(2, self()) then --> text
 			level = level + 1
 		end
-	elseif state == xmls.ETAG then
+	elseif state == self.ETAG then
 		self()
 		if level == 1 then return end
 		level = level - 1
@@ -808,7 +808,7 @@ end
 
 -- Return a string in the form of [path:]line:pos
 function xmls:traceback(pos)
-	return xmls.locate(self.str, pos or self.pos, self.name)
+	return self.locate(self.str, pos or self.pos, self.name)
 end
 
 -- Entities
