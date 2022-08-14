@@ -326,7 +326,7 @@ end
 
 -- Use a supplemental method
 -- Return next state and method's return value
-function xmls:dostate(self, state)
+function xmls:dostate(state)
 	local value
 	self.pos, self.state, value = state(self, self.str, self.pos)
 	return self.state, value
@@ -355,21 +355,21 @@ end
 -- Transition to Text
 function xmls:skipTag()
 	assert(self.state == self.ATTR)
-	return self:dostate(self, self.SKIPTAG)
+	return self:dostate(self.SKIPTAG)
 end
 
 -- Use at Attr
 -- Transition to TagEnd
 function xmls:skipAttr()
 	assert(self.state == self.ATTR)
-	return self:dostate(self, self.SKIPATTR)
+	return self:dostate(self.SKIPATTR)
 end
 
 -- Use at TagEnd
 -- Transition to Text
 function xmls:skipContent()
 	assert(self.state == self.TAGEND)
-	return self:dostate(self, self.SKIPCONTENT)
+	return self:dostate(self.SKIPCONTENT)
 end
 
 -- Manual extraction
@@ -420,7 +420,7 @@ function xmls:getContent()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
-		return self:cut(self.pos, select(2, self:dostate(self, self.SKIPINNER))), value --> text
+		return self:cut(self.pos, select(2, self:dostate(self.SKIPINNER))), value --> text
 	else
 		return "", value
 	end
@@ -433,7 +433,7 @@ function xmls:getContentPos()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
-		return self.pos, select(2, self:dostate(self, self.SKIPINNER)), value --> text
+		return self.pos, select(2, self:dostate(self.SKIPINNER)), value --> text
 	else
 		return self.pos, self.pos, value
 	end
@@ -614,10 +614,10 @@ function xmls:getSimple()
 		local state, pos = self() --> ?
 		if state == self.STAG then
 			local name = self:cut(self.pos, select(2, self())) --> attr
-			self:dostate(self, self.SKIPATTR) --> tagend
+			self:dostate(self.SKIPATTR) --> tagend
 			local state, value = self() --> text
 			if value == true then
-				return name, self:cut(self.pos, select(2, self:dostate(self, self.SKIPINNER))), pos --> text
+				return name, self:cut(self.pos, select(2, self:dostate(self.SKIPINNER))), pos --> text
 			else
 				return name, "", pos
 			end
@@ -655,10 +655,10 @@ function xmls:doSwitch(action, name)
 	local case = type(action)
 	
 	if case == "nil" then
-		return self:dostate(self, self.SKIPTAG)
+		return self:dostate(self.SKIPTAG)
 		
 	elseif case == "table" then
-		self:dostate(self, self.SKIPATTR)
+		self:dostate(self.SKIPATTR)
 		for name, pos in self:forTag() do
 			self:doSwitch(action[name], name, pos)
 		end
