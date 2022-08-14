@@ -506,21 +506,22 @@ end
 
 -- Use at TagEnd
 -- Transition to Text
--- Return inner text and TagEnd's return value
+-- Return inner text, start and end positions of content and TagEnd's return value
 function xmls:getInnerText()
 	self:assertState(self.TAGEND, "getInnerText")
 	local state, value = self() --> text
 	if value == true then
-		local text = select(2, self:getText(1))
+		local posA, posB = self:statePos()
 		if self.state == self.ETAG then
-			self()
-			return text, value
+			self() --> text
+			return self:cut(posA, posB), posA, posB, value
 		end
-		local rope = {text}
-		for _, text in self.getText, self, 1 do
+		local rope = {self:cut(posA, posB)}
+		for level, text, pos, pos in self.getText, self, 1 do
+			posB = pos
 			table.insert(rope, text)
 		end
-		return table.concat(rope), value
+		return table.concat(rope), posA, posB, value
 	else
 		return "", value
 	end
@@ -638,7 +639,7 @@ function xmls:forTag()
 end
 
 -- Use at TagEnd
--- Return level, text and position at ?
+-- Return level, text and text start and end positions at ?
 -- Transition to Text
 function xmls:forText()
 	self:assertState(self.TAGEND, "forText")
@@ -792,7 +793,7 @@ function xmls:getSimplePos()
 end
 
 -- Use at any state
--- Transition to any state except Text and return level, text data and text start position
+-- Transition to any state except Text and return level, text data and text start and end positions
 -- Transition to Text and return nil
 function xmls:getText(level)
 	local state = self.state
@@ -806,18 +807,18 @@ function xmls:getText(level)
 		if level == 1 then return end
 		level = level - 1
 	elseif state == self.ENTITY then
-		local pos = self.pos
-		local entity = self.decodeEntity(self:stateValue())
+		local posA, posB = self:statePos()
+		local entity = self.decodeEntity(self:cut(posA, posB))
 		if entity == nil then return self.error("Unrecognized entity", str, pos) end
-		return level, entity, pos
+		return level, entity, posA, posB
 	elseif state == self.TEXT or state == self.CDATA then
 		-- good!
 	else
 		-- skip
 		self() --> text
 	end
-	local pos = self.pos
-	return level, self:stateValue(), pos
+	local posA, posB = self:statePos()
+	return level, self:cut(posA, posB), posA, posB
 end
 
 -- Declarative parsing
