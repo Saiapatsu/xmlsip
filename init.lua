@@ -416,7 +416,7 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML text and TagEnd's return value
-function xmls:getContent()
+function xmls:getInnerXML()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
@@ -429,7 +429,7 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML start and end positions and TagEnd's return value
-function xmls:getContentPos()
+function xmls:getInnerXMLPos()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
