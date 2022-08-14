@@ -404,13 +404,13 @@ end
 -- Use at Value
 -- Transition to Attr and return value
 function xmls:getValue()
-	return self:cut(self.pos, select(2, self()))
+	return self:stateValue()
 end
 
 -- Use at Value
 -- Transition to Attr and return valuePos, valueLast
 function xmls:getValuePos()
-	return self.pos, select(2, self())
+	return self:statePos()
 end
 
 -- Use at TagEnd
@@ -420,7 +420,7 @@ function xmls:getContent()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
-		return self:cut(self.pos, select(2, self:dostate(self.SKIPINNER))), value --> text
+		return self:stateValue(self.SKIPINNER), value --> text
 	else
 		return "", value
 	end
@@ -433,7 +433,8 @@ function xmls:getContentPos()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
-		return self.pos, select(2, self:dostate(self.SKIPINNER)), value --> text
+		local a, b = self:statePos(self.SKIPINNER)
+		return a, b, value --> text
 	else
 		return self.pos, self.pos, value
 	end
@@ -538,7 +539,7 @@ function xmls:getRoot()
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
-			return self:cut(self.pos, select(2, self())), pos --> attr
+			return self:stateValue(), pos --> attr
 		elseif state == self.EOF then
 			return nil
 		end
@@ -598,7 +599,7 @@ function xmls:getTag()
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
-			return self:cut(self.pos, select(2, self())), pos --> attr
+			return self:stateValue(), pos --> attr
 		elseif state == self.ETAG then
 			self() --> text
 			return nil
@@ -613,11 +614,11 @@ function xmls:getSimple()
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
-			local name = self:cut(self.pos, select(2, self())) --> attr
+			local name = self:stateValue() --> attr
 			self:dostate(self.SKIPATTR) --> tagend
 			local state, value = self() --> text
 			if value == true then
-				return name, self:cut(self.pos, select(2, self:dostate(self.SKIPINNER))), pos --> text
+				return name, self:stateValue(self.SKIPINNER), pos --> text
 			else
 				return name, "", pos
 			end
