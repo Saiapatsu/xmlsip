@@ -32,7 +32,12 @@ local xmls = {}
 -- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return end of text
 function xmls:TEXT(str, pos)
-	local pos0 = str:match("[^<]*()", pos)
+	local pos0 = str:match("[^<&]*()", pos)
+	
+	if str:byte(pos0) == 38 then -- &
+		return pos0 + 1, self.ENTITY, pos0
+	end
+	
 	pos = pos0 + 1
 	
 	if str:match("^%w()", pos) ~= nil then -- <tag
@@ -69,6 +74,23 @@ function xmls:TEXT(str, pos)
 		return pos, self.MALFORMED, pos0
 	end
 end
+
+-- Name of entity reference
+-- Use after "&"
+-- Transition to Text/Attr
+-- Return end of name
+local function makeEntity(state)
+	return function(self, str, pos)
+		local pos2 = str:match("^[#%w]+();", pos)
+		if pos2 == nil then
+			return xmls.error("Bad entity", str, pos)
+		end
+		return pos2 + 1, self[state], pos2
+	end
+end
+xmls.ENTITY = makeEntity("TEXT")
+xmls.VALUE1ENT = makeEntity("VALUE1")
+xmls.VALUE2ENT = makeEntity("VALUE2")
 
 -- Name of starting tag
 -- Use at name character after "<"
@@ -179,11 +201,15 @@ end
 -- Transition to Attr
 -- Return end of value
 function xmls:VALUE1(str, pos)
-	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos)
-	if posQuote == nil then
+	posSpecial = str:match("^[^'&]*()", pos)
+	local byte = str:byte(posSpecial)
+	if byte == 38 then -- &
+		return posSpecial + 1, self.VALUE1ENT, posSpecial
+	elseif byte == 39 then -- '
+		return str:match("^[ \t\r\n]*()", posSpecial + 1), self.ATTR, posSpecial
+	else
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
-	return posSpace, self.ATTR, posQuote
 end
 
 -- Double-quoted attribute value
@@ -191,11 +217,15 @@ end
 -- Transition to Attr
 -- Return end of value
 function xmls:VALUE2(str, pos)
-	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos)
-	if posQuote == nil then
+	posSpecial = str:match("^[^\"&]*()", pos)
+	local byte = str:byte(posSpecial)
+	if byte == 38 then -- &
+		return posSpecial + 1, self.VALUE1ENT, posSpecial
+	elseif byte == 34 then -- "
+		return str:match("^[ \t\r\n]*()", posSpecial + 1), self.ATTR, posSpecial
+	else
 		return xmls.error("Unterminated attribute value", str, pos)
 	end
-	return posSpace, self.ATTR, posQuote
 end
 
 -- End of tag
@@ -257,6 +287,22 @@ function xmls:SKIPATTR(str, pos)
 	else
 		return pos, self.TAGEND
 	end
+end
+
+function xmls:SKIPVALUE1(str, pos)
+	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos)
+	if posQuote == nil then
+		return xmls.error("Unterminated attribute value", str, pos)
+	end
+	return posSpace, self.ATTR, posQuote
+end
+
+function xmls:SKIPVALUE2(str, pos)
+	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos)
+	if posQuote == nil then
+		return xmls.error("Unterminated attribute value", str, pos)
+	end
+	return posSpace, self.ATTR, posQuote
 end
 
 -- Skip the content and end tag of a tag
@@ -404,13 +450,26 @@ end
 -- Use at Value
 -- Transition to Attr and return value
 function xmls:getValue()
-	return self:stateValue()
+	local rope = {}
+	while true do
+		table.insert(rope, self:stateValue())
+		if self.state == self.ATTR then return table.concat(rope) end
+		local entity = self.decodeEntity(self:stateValue())
+		if entity == nil then return xmls.error("Unrecognized entity", str, pos) end
+		table.insert(rope, entity)
+	end
+end
+
+-- Use at Value
+-- Transition to Attr and return value
+function xmls:getValueRaw()
+	return self:stateValue(self.state == self.VALUE2 and self.SKIPVALUE2 or self.SKIPVALUE1)
 end
 
 -- Use at Value
 -- Transition to Attr and return valuePos, valueLast
 function xmls:getValuePos()
-	return self:statePos()
+	return self:statePos(self.state == self.VALUE2 and self.SKIPVALUE2 or self.SKIPVALUE1)
 end
 
 -- Use at TagEnd
@@ -487,6 +546,14 @@ end
 function xmls:forAttr()
 	assert(self.state == self.ATTR)
 	return self.getAttr, self
+end
+
+-- Use at Attr
+-- Return key, value at Attr
+-- Transition to TagEnd
+function xmls:forAttrRaw()
+	assert(self.state == self.ATTR)
+	return self.getAttrRaw, self
 end
 
 -- Use at Attr
@@ -578,12 +645,23 @@ end
 function xmls:getAttr()
 	local posA, posB, state, key
 	posA = self.pos
+	state, posB = self() --> value
+	if state == self.VALUE2 or state == self.VALUE1 then
+		return self:cut(posA, posB), self:getValue()
+	else
+		return nil
+	end
+end
+
+-- Use at Attr
+-- Transition to Attr and return key, value
+-- Transition to TagEnd and return nil
+function xmls:getAttrRaw()
+	local posA, posB, state, key
+	posA = self.pos
 	state, posB = self()
 	if state == self.VALUE2 or state == self.VALUE1 then
-		key = self:cut(posA, posB)
-		posA = self.pos
-		state, posB = self()
-		return key, self:cut(posA, posB)
+		return self:cut(posA, posB), self:getValueRaw()
 	else
 		return nil
 	end
@@ -597,9 +675,7 @@ function xmls:getAttrPos()
 	posA = self.pos
 	state, posB = self()
 	if state == self.VALUE2 or state == self.VALUE1 then
-		posC = self.pos
-		state, posD = self()
-		return posA, posB, posC, posD
+		return posA, posB, self:getValuePos()
 	else
 		return nil
 	end
@@ -733,6 +809,27 @@ end
 -- Return a string in the form of [path:]line:pos
 function xmls:traceback(pos)
 	return xmls.locate(self.str, pos or self.pos, self.name)
+end
+
+-- Entities
+-- ========
+
+xmls.entityToLiteral = {
+	quot = '"',
+	apos = "'",
+	amp = "&",
+	lt = "<",
+	gt = ">",
+}
+
+function xmls.decodeEntity(str)
+	return entityToLiteral[str]
+	-- local literal = entityToLiteral[str]
+	-- if literal then
+		-- return literal
+	-- end
+	-- if str:byte(1) == 35 then -- #
+		-- if str:byte(2) == 120 then -- x
 end
 
 -- Error reporting supplements
