@@ -450,13 +450,15 @@ end
 -- Use at Value
 -- Transition to Attr and return value
 function xmls:getValue()
-	local rope = {}
+	local value = self:stateValue()
+	if self.state == self.ATTR then return value end
+	local rope = {value}
 	while true do
-		table.insert(rope, self:stateValue())
-		if self.state == self.ATTR then return table.concat(rope) end
 		local entity = self.decodeEntity(self:stateValue())
 		if entity == nil then return self.error("Unrecognized entity", str, pos) end
 		table.insert(rope, entity)
+		table.insert(rope, self:stateValue())
+		if self.state == self.ATTR then return table.concat(rope) end
 	end
 end
 
