@@ -525,6 +525,15 @@ function xmls:forTag()
 	return value and self.getTag or self.getNothing, self
 end
 
+-- Use at TagEnd
+-- Return level, text and position at ?
+-- Transition to Text
+function xmls:forText()
+	assert(self.state == self.TAGEND)
+	local state, value = self()
+	return value and self.getText or self.getNothing, self, 1
+end
+
 -- Iterators
 -- =========
 
@@ -627,6 +636,30 @@ function xmls:getSimple()
 			return nil
 		end
 	end
+end
+
+-- Use at any state
+-- Transition to any state except Text and return level, text data and text start position
+-- Transition to Text and return nil
+function xmls:getText(level)
+	local state = self.state
+	if state == xmls.STAG then
+		self:dostate(self.SKIPATTR) --> tagend
+		if select(2, self()) then --> text
+			level = level + 1
+		end
+	elseif state == xmls.ETAG then
+		self()
+		if level == 1 then return end
+		level = level - 1
+	elseif state == self.TEXT or state == self.CDATA then
+		-- good!
+	else
+		-- skip
+		self() --> text
+	end
+	local pos = self.pos
+	return level, self:stateValue(), pos
 end
 
 -- Declarative parsing
