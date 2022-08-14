@@ -179,6 +179,9 @@ end
 -- Transition to TagEnd and return nil
 function xmls:ATTR(str, pos)
 	if str:match("^[^/>]()", pos) ~= nil then
+		if not str:match("^[ \t\r\n]", pos - 1) then
+			return self.error("Attribute not separated by a space", str, pos)
+		end
 		local posName, posQuote = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
 		if posName == nil then
 			return self.error("Malformed attribute", str, pos)
