@@ -828,8 +828,8 @@ xmls.entityToLiteral = {
 }
 
 function xmls.decodeEntity(str)
-	return entityToLiteral[str]
-	-- local literal = entityToLiteral[str]
+	return xmls.entityToLiteral[str]
+	-- local literal = xmls.entityToLiteral[str]
 	-- if literal then
 		-- return literal
 	-- end
