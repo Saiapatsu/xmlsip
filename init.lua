@@ -750,6 +750,11 @@ function xmls:getText(level)
 		self()
 		if level == 1 then return end
 		level = level - 1
+	elseif state == self.ENTITY then
+		local pos = self.pos
+		local entity = self.decodeEntity(self:stateValue())
+		if entity == nil then return self.error("Unrecognized entity", str, pos) end
+		return level, entity, pos
 	elseif state == self.TEXT or state == self.CDATA then
 		-- good!
 	else
