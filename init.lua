@@ -430,7 +430,7 @@ end
 function xmls:getKey()
 	local posA = self.pos
 	local state, posB = self()
-	if state == self.VALUE2 or state == self.VALUE1 then
+	if state ~= self.TAGEND then -- is a value
 		return self:cut(posA, posB)
 	else
 		return nil
@@ -443,7 +443,7 @@ end
 function xmls:getKeyPos()
 	local posA = self.pos
 	local state, posB = self()
-	if state == self.VALUE2 or state == self.VALUE1 then
+	if state ~= self.TAGEND then -- is a value
 		return posA, posB
 	else
 		return nil
@@ -651,7 +651,7 @@ function xmls:getAttr()
 	local posA, posB, state, key
 	posA = self.pos
 	state, posB = self() --> value
-	if state == self.VALUE2 or state == self.VALUE1 then
+	if state ~= self.TAGEND then -- is a value
 		return self:cut(posA, posB), self:getValue()
 	else
 		return nil
@@ -665,7 +665,7 @@ function xmls:getAttrRaw()
 	local posA, posB, state, key
 	posA = self.pos
 	state, posB = self()
-	if state == self.VALUE2 or state == self.VALUE1 then
+	if state ~= self.TAGEND then -- is a value
 		return self:cut(posA, posB), self:getValueRaw()
 	else
 		return nil
@@ -679,7 +679,7 @@ function xmls:getAttrPos()
 	local posA, posB, posC, posD, state
 	posA = self.pos
 	state, posB = self()
-	if state == self.VALUE2 or state == self.VALUE1 then
+	if state ~= self.TAGEND then -- is a value
 		return posA, posB, self:getValuePos()
 	else
 		return nil
