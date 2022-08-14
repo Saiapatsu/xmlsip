@@ -440,6 +440,23 @@ function xmls:getInnerXMLPos()
 	end
 end
 
+-- Use at TagEnd
+-- Transition to Text
+-- Return inner text and TagEnd's return value
+function xmls:getInnerText()
+	assert(self.state == self.TAGEND)
+	local state, value = self() --> text
+	if value == true then
+		local rope = {}
+		for l, text in self.getText, self, 1 do
+			table.insert(rope, text)
+		end
+		return table.concat(rope)
+	else
+		return "", value
+	end
+end
+
 -- Use at Attr
 -- Return map of attributes
 -- Transition to TagEnd
