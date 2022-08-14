@@ -493,7 +493,7 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML start and end positions and TagEnd's return value
-function xmls:getInnerXMLPos()
+function xmls:getInnerPos()
 	assert(self.state == self.TAGEND)
 	local state, value = self() --> text
 	if value == true then
@@ -586,12 +586,30 @@ function xmls:forKeyPos()
 end
 
 -- Use at TagEnd
--- Return tag name, inner XML and tag position at Text
+-- Return tag name, tag text content, whether it was an opening tag and tag position at Text
 -- Transition to Text
 function xmls:forSimple()
 	assert(self.state == self.TAGEND)
 	local state, value = self()
 	return value and self.getSimple or self.getNothing, self
+end
+
+-- Use at TagEnd
+-- Return tag name, tag XML content, whether it was an opening tag and tag position at Text
+-- Transition to Text
+function xmls:forSimpleXML()
+	assert(self.state == self.TAGEND)
+	local state, value = self()
+	return value and self.getSimpleXML or self.getNothing, self
+end
+
+-- Use at TagEnd
+-- Return tag name, tag content start and end positions, whether it was an opening tag and tag position at Text
+-- Transition to Text
+function xmls:forSimplePos()
+	assert(self.state == self.TAGEND)
+	local state, value = self()
+	return value and self.getSimplePos or self.getNothing, self
 end
 
 -- Use at TagEnd
@@ -715,7 +733,7 @@ function xmls:getTag()
 end
 
 -- Use at Text
--- Transition to Text and return tag name, tag content and tag position
+-- Transition to Text and return tag name, tag text content, whether it was an opening tag and tag position
 -- Transition to Text and return nil
 function xmls:getSimple()
 	while true do
@@ -723,12 +741,44 @@ function xmls:getSimple()
 		if state == self.STAG then
 			local name = self:stateValue() --> attr
 			self:dostate(self.SKIPATTR) --> tagend
-			local state, value = self() --> text
-			if value == true then
-				return name, self:stateValue(self.SKIPINNER), pos --> text
-			else
-				return name, "", pos
-			end
+			local value, opening = self:getInnerText()
+			return name, value, opening, pos --> text
+		elseif state == self.ETAG then
+			self() --> text
+			return nil
+		end
+	end
+end
+
+-- Use at Text
+-- Transition to Text and return tag name, tag XML content, whether it was an opening tag and tag position
+-- Transition to Text and return nil
+function xmls:getSimpleXML()
+	while true do
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
+			self:dostate(self.SKIPATTR) --> tagend
+			local value, opening = self:getInnerXML()
+			return name, value, opening, pos --> text
+		elseif state == self.ETAG then
+			self() --> text
+			return nil
+		end
+	end
+end
+
+-- Use at Text
+-- Transition to Text and return tag name, tag content starting and ending position, whether it was an opening tag and tag position
+-- Transition to Text and return nil
+function xmls:getSimplePos()
+	while true do
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
+			self:dostate(self.SKIPATTR) --> tagend
+			local a, b, opening = self:getInnerPos()
+			return name, a, b, opening, pos --> text
 		elseif state == self.ETAG then
 			self() --> text
 			return nil
