@@ -834,7 +834,7 @@ xmls.DEFAULT = function() end
 function xmls:doTags(tree)
 	assert(self.state == self.TAGEND)
 	for name, pos in self:forTag() do
-		self:doSwitch(tree[name] or tree[xmls.DEFAULT], name, pos)
+		self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
 	end
 end
 
@@ -843,7 +843,7 @@ end
 function xmls:doRoots(tree)
 	assert(self.state == self.TEXT)
 	for name, pos in self:forRoot() do
-		self:doSwitch(tree[name] or tree[xmls.DEFAULT], name, pos)
+		self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
 	end
 end
 
@@ -857,7 +857,7 @@ function xmls:doDescendants(tree)
 	repeat
 		local name, pos = self:getTag() --> attr
 		if name ~= nil then
-			local action = tree[name] or tree[xmls.DEFAULT]
+			local action = tree[name] or tree[self.DEFAULT]
 			local case = type(action)
 			
 			if case == "table" then
