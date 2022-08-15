@@ -989,6 +989,67 @@ function xmls:assertState(state, name)
 	end
 end
 
+-- Replacement/editing functions
+-- =============================
+
+function xmls:replaceInit()
+	self.replaceA = {}
+	self.replaceB = {}
+	self.replacePayload = {}
+end
+
+function xmls:replace(a, b, payload)
+	table.insert(self.replaceA, a)
+	table.insert(self.replaceB, b)
+	table.insert(self.replacePayload, payload)
+end
+
+-- Replace tag content (between a and b) with payload, opening or closing the tag as necessary
+function xmls:replaceContent(a, b, opening, name, payload)
+	if opening then
+		if payload ~= "" then
+			-- replace content as normal
+			self:replace(a, b, payload)
+		else
+			-- self-close the opening tag and remove the content and closing tag
+			self:replace(a - 1, a - 1, "/")
+			self:replace(a, self.pos, "")
+		end
+	else -- self-closing
+		if payload ~= "" then
+			-- remove the / and add a closing tag
+			self:replace(a - 2, a - 1, "")
+			self:replace(a, b, payload .. string.format("</%s>", name))
+		else
+			-- do nothing
+		end
+	end
+end
+
+function xmls:replaceFinish()
+	-- sort replacements
+	local proxy = {}
+	for i = 1, #self.replacePayload do
+		table.insert(proxy, i)
+	end
+	table.sort(proxy, function(a, b)
+		return self.replaceB[a] < self.replaceA[b]
+	end)
+	-- perform replacements
+	local rope = {}
+	local pos = 1
+	for i = 1, #self.replacePayload do
+		i = proxy[i]
+		local payload = self.replacePayload[i]
+		if type(payload) == "function" then payload = payload(self) end
+		table.insert(rope, self:cut(pos, self.replaceA[i]))
+		table.insert(rope, payload)
+		pos = self.replaceB[i]
+	end
+	table.insert(rope, self:cutEnd(pos))
+	return table.concat(rope)
+end
+
 -- End
 -- ===
 
