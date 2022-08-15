@@ -28,8 +28,8 @@ local xmls = {}
 -- ======
 
 -- Plain text
--- Use outside of markup
--- Transition to STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
+-- Use after ">", after ";" or at beginning of document
+-- Transition to Entity, STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
 -- Return end of text
 function xmls:TEXT(str, pos)
 	local pos0 = str:match("[^<&]*()", pos)
@@ -77,7 +77,6 @@ end
 
 -- Name of entity reference
 -- Use after "&"
--- Transition to Text/Attr
 -- Return end of name
 local function makeEntity(state)
 	return function(self, str, pos)
@@ -88,12 +87,15 @@ local function makeEntity(state)
 		return pos2 + 1, self[state], pos2
 	end
 end
+-- Transition to Text
 xmls.ENTITY = makeEntity("TEXT")
+-- Transition to Value1
 xmls.VALUE1ENT = makeEntity("VALUE1")
+-- Transition to Value2
 xmls.VALUE2ENT = makeEntity("VALUE2")
 
 -- Name of starting tag
--- Use at name character after "<"
+-- Use after "<"
 -- Transition to Attr
 -- Return end of name
 function xmls:STAG(str, pos)
@@ -105,7 +107,7 @@ function xmls:STAG(str, pos)
 end
 
 -- Name of ending tag
--- Use at name character after "</"
+-- Use after "</"
 -- Transition to Text
 -- Return end of name
 function xmls:ETAG(str, pos)
@@ -201,7 +203,7 @@ end
 
 -- Single-quoted attribute value
 -- Use after "'"
--- Transition to Attr
+-- Transition to Attr or Value1Entity
 -- Return end of value
 function xmls:VALUE1(str, pos)
 	posSpecial = str:match("^[^'&]*()", pos)
@@ -217,7 +219,7 @@ end
 
 -- Double-quoted attribute value
 -- Use after '"'
--- Transition to Attr
+-- Transition to Attr or Value2Entity
 -- Return end of value
 function xmls:VALUE2(str, pos)
 	posSpecial = str:match("^[^\"&]*()", pos)
@@ -269,14 +271,16 @@ xmls.names = names
 -- Skip attributes and content of a tag
 -- Use at Attr
 -- Transition to Text
+-- Return nothing
 function xmls:SKIPTAG(str, pos)
 	pos = self:SKIPATTR(str, pos)
 	return self:SKIPCONTENT(str, pos)
 end
 
 -- Skip attributes of a tag
--- Use between a < and a >
+-- Use between a "<" and a ">"
 -- Transition to TagEnd
+-- Return nothing
 function xmls:SKIPATTR(str, pos)
 	-- fails when there's a slash in an attribute value!
 	-- local pos2 = str:match("^[^/>]*()", pos)
@@ -292,6 +296,10 @@ function xmls:SKIPATTR(str, pos)
 	end
 end
 
+-- Skip attribute value
+-- Use after "'"
+-- Transition to Attr
+-- Return end of value
 function xmls:SKIPVALUE1(str, pos)
 	posQuote, posSpace = str:match("()'[ \t\r\n]*()", pos)
 	if posQuote == nil then
@@ -300,6 +308,10 @@ function xmls:SKIPVALUE1(str, pos)
 	return posSpace, self.ATTR, posQuote
 end
 
+-- Skip attribute value
+-- Use after '"'
+-- Transition to Attr
+-- Return end of value
 function xmls:SKIPVALUE2(str, pos)
 	posQuote, posSpace = str:match('()"[ \t\r\n]*()', pos)
 	if posQuote == nil then
@@ -311,7 +323,7 @@ end
 -- Skip the content and end tag of a tag
 -- Use at TagEnd
 -- Transition to Text
--- Return value is not useful
+-- Return end of content just before the end tag
 function xmls:SKIPCONTENT(str, pos)
 	local pos, state, value = self:TAGEND(str, pos) --> text
 	if value == true then
@@ -373,32 +385,32 @@ function xmls:__call()
 	return self.state, value
 end
 
--- Use a supplemental method
--- Return next state and method's return value
+-- Use a specific state
+-- Return next state and used state's return value
 function xmls:dostate(state)
 	local value
 	self.pos, self.state, value = state(self, self.str, self.pos)
 	return self.state, value
 end
 
--- Advance to the next state
--- Return start and end positions of the current state's "value"
+-- Use a specific state or current state
+-- Return start and end positions of the state's "value"
 function xmls:statePos(state)
 	local posA, posB = self.pos
 	self.pos, self.state, posB = (state or self.state)(self, self.str, self.pos)
 	return posA, posB
 end
 
--- Advance to the next state
--- Return the current state's string "value"
+-- Use a specific state or current state
+-- Return the state's "value" as a string
 function xmls:stateValue(state)
 	local posA, posB = self.pos
 	self.pos, self.state, posB = (state or self.state)(self, self.str, self.pos)
 	return self:cut(posA, posB)
 end
 
--- Skipping irrelevant content
--- ===========================
+-- Skipping
+-- ========
 
 -- Use at Attr
 -- Transition to Text
@@ -562,9 +574,9 @@ end
 -- Use at Attr
 -- Return key, value at Attr
 -- Transition to TagEnd
-function xmls:forAttrRaw()
-	self:assertState(self.ATTR, "forAttrRaw")
-	return self.getAttrRaw, self
+function xmls:forAttrXML()
+	self:assertState(self.ATTR, "forAttrXML")
+	return self.getAttrXML, self
 end
 
 -- Use at Attr
@@ -685,7 +697,7 @@ end
 -- Use at Attr
 -- Transition to Attr and return key, value
 -- Transition to TagEnd and return nil
-function xmls:getAttrRaw()
+function xmls:getAttrXML()
 	local posA, posB, state, key
 	posA = self.pos
 	state, posB = self()
@@ -919,22 +931,20 @@ end
 -- Other
 -- =====
 
+-- Get input string substring [a, b)
 function xmls:cut(a, b)
 	return self.str:sub(a, b - 1)
 end
 
+-- Get input string substring [a, end]
 function xmls:cutEnd(a)
 	return self.str:sub(a)
-end
-
--- Return a string in the form of [path:]line:pos
-function xmls:traceback(pos)
-	return self.locate(self.str, pos or self.pos, self.name)
 end
 
 -- Entities
 -- ========
 
+-- XML mandatory entities
 xmls.entityToLiteral = {
 	quot = '"',
 	apos = "'",
@@ -943,6 +953,7 @@ xmls.entityToLiteral = {
 	gt = ">",
 }
 
+-- Resolve an entity to a string or nil
 function xmls.decodeEntity(str)
 	return xmls.entityToLiteral[str]
 	-- local literal = xmls.entityToLiteral[str]
@@ -981,6 +992,10 @@ end
 function xmls.error(reason, str, filepos)
 	local line, linepos = xmls.linepos(str, filepos)
 	return error(debug.traceback(string.format("%s at %d:%d:%d", reason, filepos, line, linepos), 2), 2)
+end
+
+function xmls:traceback(pos)
+	return self.locate(self.str, pos or self.pos, self.name)
 end
 
 function xmls:assertState(state, name)
@@ -1026,6 +1041,7 @@ function xmls:replaceContent(a, b, opening, name, payload)
 	end
 end
 
+-- Perform pending replacements
 function xmls:replaceFinish()
 	-- sort replacements
 	local proxy = {}
