@@ -23,6 +23,7 @@ SOFTWARE.
 ]]
 
 local xmls = {}
+local utf8char = utf8.char
 
 -- States
 -- ======
@@ -955,13 +956,16 @@ xmls.entityToLiteral = {
 
 -- Resolve an entity to a string or nil
 function xmls.decodeEntity(str)
-	return xmls.entityToLiteral[str]
-	-- local literal = xmls.entityToLiteral[str]
-	-- if literal then
-		-- return literal
-	-- end
-	-- if str:byte(1) == 35 then -- #
-		-- if str:byte(2) == 120 then -- x
+	local literal = xmls.entityToLiteral[str]
+	if literal then return literal end
+	if str:byte(1) ~= 35 then return end -- #
+	if str:byte(2) == 120 then -- x
+		str = str:match("^%x+$", 3)
+	else
+		str = str:match("^%d+$", 2)
+	end
+	if str == nil then return end
+	return utf8char(tonumber(str, 16))
 end
 
 -- Error reporting supplements
