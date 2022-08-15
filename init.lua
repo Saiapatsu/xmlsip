@@ -846,17 +846,47 @@ xmls.DEFAULT = function() end
 -- Transition to Text
 function xmls:doTags(tree)
 	assert(self.state == self.TAGEND)
-	for name, pos in self:forTag() do
-		self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
+	if select(2, self()) == false then return end --> text
+	while true do
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
+			self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
+		elseif state == self.ETAG then
+			self() --> text
+			return
+		else -- Comment, PI
+			local action = tree[state]
+			if type(action) == "function" then
+				action(state, pos)
+			else
+				self() --> text
+			end
+		end
 	end
 end
 
 -- Use at Start
 -- Transition to EOF
 function xmls:doRoots(tree)
+	-- difference: requires TEXT and does not go from TAGEND to TEXT
 	assert(self.state == self.TEXT)
-	for name, pos in self:forRoot() do
-		self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
+	while true do
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
+			self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
+		elseif state == self.EOF then
+			-- difference: checks for EOF and does not go to the next state
+			return
+		else -- Comment, PI
+			local action = tree[state]
+			if type(action) == "function" then
+				action(state, pos)
+			else
+				self() --> text
+			end
+		end
 	end
 end
 
