@@ -226,7 +226,7 @@ function xmls:VALUE2(str, pos)
 	posSpecial = str:match("^[^\"&]*()", pos)
 	local byte = str:byte(posSpecial)
 	if byte == 38 then -- &
-		return posSpecial + 1, self.VALUE1ENT, posSpecial
+		return posSpecial + 1, self.VALUE2ENT, posSpecial
 	elseif byte == 34 then -- "
 		return str:match("^[ \t\r\n]*()", posSpecial + 1), self.ATTR, posSpecial
 	else
