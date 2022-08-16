@@ -41,7 +41,7 @@ function xmls:TEXT(str, pos)
 	
 	pos = pos0 + 1
 	
-	if str:match("^%w()", pos) ~= nil then -- <tag
+	if str:find("^[:A-Z_a-z\x80-\xff]", pos) ~= nil then -- <tag
 		return pos, self.STAG, pos0
 	end
 	
@@ -49,7 +49,7 @@ function xmls:TEXT(str, pos)
 	
 	if byte == 47 then -- </
 		pos = pos + 1
-		if str:match("^%w()", pos) ~= nil then -- </tag
+		if str:find("^[:A-Z_a-z\x80-\xff]", pos) ~= nil then -- </tag
 			return pos, self.ETAG, pos0
 		else -- </>
 			return pos - 1, self.MALFORMED, pos0
@@ -100,7 +100,7 @@ xmls.VALUE2ENT = makeEntity("VALUE2")
 -- Transition to Attr
 -- Return end of name
 function xmls:STAG(str, pos)
-	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
+	local posName, posSpace = str:match("^[:A-Z_a-z\x80-\xff][-.0-9:A-Z_a-z\x80-\xff]*()[ \t\r\n]*()", pos)
 	if posName == nil then
 		return self.error("Invalid tag name", str, pos)
 	end
@@ -112,7 +112,7 @@ end
 -- Transition to Text
 -- Return end of name
 function xmls:ETAG(str, pos)
-	local posName, posSpace = str:match("^%w+()[ \t\r\n]*()", pos)
+	local posName, posSpace = str:match("^[:A-Z_a-z\x80-\xff][-.0-9:A-Z_a-z\x80-\xff]*()[ \t\r\n]*()", pos)
 	if posName == nil then
 		return self.error("Invalid etag name", str, pos)
 	end
@@ -185,7 +185,7 @@ function xmls:ATTR(str, pos)
 		if not str:match("^[ \t\r\n]", pos - 1) then
 			return self.error("Attribute not separated by a space", str, pos)
 		end
-		local posName, posQuote = str:match("^%w+()[ \t\r\n]*=[ \t\r\n]*()", pos)
+		local posName, posQuote = str:match("^[:A-Z_a-z\x80-\xff][-.0-9:A-Z_a-z\x80-\xff]*()[ \t\r\n]*=[ \t\r\n]*()", pos)
 		if posName == nil then
 			return self.error("Malformed attribute", str, pos)
 		end
