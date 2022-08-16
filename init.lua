@@ -883,8 +883,9 @@ end
 -- A function can return true and leave content unconsumed to allow the search to continue
 function xmls:doDescendants(tree, stag)
 	self:assertState(self.TAGEND, "doDescendants")
-	self() --> text
-	self:doDescendantsRoot(tree) --> etag
+	if select(2, self()) then --> text
+		self:doDescendantsRoot(tree) --> etag
+	end
 	return self:assertEtag(stag) --> text
 end
 
