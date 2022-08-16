@@ -1116,6 +1116,9 @@ function xmls:replaceFinish()
 	local pos = 1
 	for i = 1, #self.replacePayload do
 		i = proxy[i]
+		if self.replaceA[i] < pos then
+			return xmls.error("Overlapping replacements", self.str, pos)
+		end
 		local payload = self.replacePayload[i]
 		if type(payload) == "function" then payload = payload(self) end
 		table.insert(rope, self:cut(pos, self.replaceA[i]))
