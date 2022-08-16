@@ -724,12 +724,12 @@ function xmls:getAttrPos()
 end
 
 -- Use at Text
--- Transition to ? and return state
+-- Transition to ? and return state, pos
 -- Transition to Text and return nil
 function xmls:getMarkup()
-	local state = self() --> ?
+	local state, pos = self() --> ?
 	if state ~= self.ETAG then
-		return state
+		return state, pos
 	else
 		self() --> text
 		return nil
