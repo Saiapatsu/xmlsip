@@ -965,9 +965,9 @@ end
 
 -- Generate function that calls doDescendants
 function xmls:toDescendants(root)
-	return function(xml)
-		xml:skipAttr()
-		return xml:doDescendants(root)
+	return function(xml, stag)
+		self:dostate(self.SKIPATTR)
+		return xml:doDescendants(root, stag)
 	end
 end
 
