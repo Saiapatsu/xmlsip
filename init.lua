@@ -544,7 +544,7 @@ end
 -- Return map of attributes
 -- Transition to TagEnd
 function xmls:getAttrMap(tbl)
-	assert(self.state == self.ATTR)
+	self:assertState(self.ATTR, "getAttrMap")
 	tbl = tbl or {}
 	for k, v in self.getAttr, self do
 		tbl[k] = v
@@ -845,7 +845,7 @@ xmls.DEFAULT = function() end
 -- Use at TagEnd
 -- Transition to Text
 function xmls:doTags(tree)
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "doTags")
 	if select(2, self()) == false then return end --> text
 	while true do
 		local state, pos = self() --> ?
@@ -869,7 +869,7 @@ end
 -- Use at Start
 -- Transition to EOF
 function xmls:doRoots(tree)
-	assert(self.state == self.TEXT)
+	self:assertState(self.TEXT, "doRoots")
 	-- difference: requires TEXT and does not go from TAGEND to TEXT
 	while true do
 		local state, pos = self() --> ?
@@ -894,7 +894,7 @@ end
 -- Transition to Text
 -- A function can return true and leave content unconsumed to allow the search to continue
 function xmls:doDescendants(tree)
-	assert(self.state == self.TAGEND)
+	self:assertState(self.TAGEND, "doDescendants")
 	self() --> text
 	local level = 1
 	repeat
@@ -947,7 +947,7 @@ end
 -- Transition to EOF
 -- A function can return true and leave content unconsumed to allow the search to continue
 function xmls:doDescendantsRoot(tree)
-	assert(self.state == self.TEXT)
+	self:assertState(self.TEXT, "doTags")
 	-- difference: requires TEXT and does not go from TAGEND to TEXT
 	-- difference: does not track level because it stops at EOF anyway
 	while true do
