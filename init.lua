@@ -326,8 +326,8 @@ end
 -- Transition to ETag
 -- Return end of content just before the end tag
 function xmls:SKIPCONTENT(str, pos)
-	local pos, state, value = self:TAGEND(str, pos) --> text
-	if value == true then
+	local pos, state, opening = self:TAGEND(str, pos) --> text
+	if opening then
 		return self:SKIPINNER(str, pos) --> etag
 	else
 		return pos, state, nil
@@ -346,8 +346,8 @@ function xmls:SKIPINNER(str, pos)
 		if state == self.STAG then --> stag
 			-- pos, state = state(self, str, pos) --> attr
 			pos, state = self:SKIPATTR(str, pos) --> tagend
-			pos, state, value = state(self, str, pos) --> text
-			if value == true then
+			pos, state, opening = state(self, str, pos) --> text
+			if opening then
 				level = level + 1
 			end
 			
@@ -500,7 +500,7 @@ end
 function xmls:getInnerXML(stag)
 	self:assertState(self.TAGEND, "getInnerXML")
 	local state, opening = self() --> text
-	if opening == true then
+	if opening then
 		local value = self:stateValue(self.SKIPINNER) --> etag
 		self:assertEtag(stag) --> text
 		return value, opening
@@ -515,7 +515,7 @@ end
 function xmls:getInnerPos(stag)
 	self:assertState(self.TAGEND, "getInnerPos")
 	local state, opening = self() --> text
-	if opening == true then
+	if opening then
 		local a, b = self:statePos(self.SKIPINNER) --> etag
 		self:assertEtag(stag) --> text
 		return a, b, opening
@@ -529,21 +529,21 @@ end
 -- Return inner text, start and end positions of content and TagEnd's return value
 function xmls:getInnerText(stag)
 	self:assertState(self.TAGEND, "getInnerText")
-	local state, value = self() --> text
-	if value == true then
+	local state, opening = self() --> text
+	if opening then
 		local posA, posB = self:statePos()
 		if self.state == self.ETAG then
 			self:assertEtag(stag) --> text
-			return self:cut(posA, posB), posA, posB, value
+			return self:cut(posA, posB), posA, posB, opening
 		end
 		local rope = {self:cut(posA, posB)}
 		for level, text, pos, pos in self.getTextGen(stag), self, 1 do
 			posB = pos
 			table.insert(rope, text)
 		end
-		return table.concat(rope), posA, posB, value
+		return table.concat(rope), posA, posB, opening
 	else
-		return "", value
+		return "", opening
 	end
 end
 
@@ -616,8 +616,8 @@ end
 -- Transition to Text
 function xmls:forSimple(stag)
 	self:assertState(self.TAGEND, "forSimple")
-	local state, value = self()
-	return value and self.getSimple or self.getNothing, self, stag
+	local state, opening = self()
+	return opening and self.getSimple or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
@@ -625,8 +625,8 @@ end
 -- Transition to Text
 function xmls:forSimpleXML(stag)
 	self:assertState(self.TAGEND, "forSimpleXML")
-	local state, value = self()
-	return value and self.getSimpleXML or self.getNothing, self, stag
+	local state, opening = self()
+	return opening and self.getSimpleXML or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
@@ -634,8 +634,8 @@ end
 -- Transition to Text
 function xmls:forSimplePos(stag)
 	self:assertState(self.TAGEND, "forSimplePos")
-	local state, value = self()
-	return value and self.getSimplePos or self.getNothing, self, stag
+	local state, opening = self()
+	return opening and self.getSimplePos or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
@@ -644,8 +644,8 @@ end
 -- Transition to Text
 function xmls:forMarkup(stag)
 	self:assertState(self.TAGEND, "forMarkup")
-	local state, value = self()
-	return value and self.getMarkup or self.getNothing, self, stag
+	local state, opening = self()
+	return opening and self.getMarkup or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
@@ -654,8 +654,8 @@ end
 -- Transition to Text
 function xmls:forTag(stag)
 	self:assertState(self.TAGEND, "forTag")
-	local state, value = self()
-	return value and self.getTag or self.getNothing, self, stag
+	local state, opening = self()
+	return opening and self.getTag or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
@@ -663,8 +663,8 @@ end
 -- Transition to Text
 function xmls:forText(stag)
 	self:assertState(self.TAGEND, "forText")
-	local state, value = self()
-	return value and self.getTextGen(stag) or self.getNothing, self, 1
+	local state, opening = self()
+	return opening and self.getTextGen(stag) or self.getNothing, self, 1
 end
 
 -- Iterators
