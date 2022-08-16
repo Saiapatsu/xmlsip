@@ -271,7 +271,7 @@ xmls.names = names
 
 -- Skip attributes and content of a tag
 -- Use at Attr
--- Transition to Text
+-- Transition to ETag
 -- Return nothing
 function xmls:SKIPTAG(str, pos)
 	pos = self:SKIPATTR(str, pos)
@@ -323,12 +323,12 @@ end
 
 -- Skip the content and end tag of a tag
 -- Use at TagEnd
--- Transition to Text
+-- Transition to ETag
 -- Return end of content just before the end tag
 function xmls:SKIPCONTENT(str, pos)
 	local pos, state, value = self:TAGEND(str, pos) --> text
 	if value == true then
-		return self:SKIPINNER(str, pos) --> text
+		return self:SKIPINNER(str, pos) --> etag
 	else
 		return pos, state, nil
 	end
@@ -336,12 +336,12 @@ end
 
 -- Skip the content and end tag of a tag
 -- Use at Text after TagEnd
--- Transition to Text
+-- Transition to ETag
 -- Return end of content just before the end tag
 function xmls:SKIPINNER(str, pos)
 	local level, state, value = 1, self.TEXT
 	local posB
-	repeat --> text
+	while true do --> text
 		pos, state, posB = state(self, str, pos) --> ?
 		if state == self.STAG then --> stag
 			-- pos, state = state(self, str, pos) --> attr
@@ -352,14 +352,16 @@ function xmls:SKIPINNER(str, pos)
 			end
 			
 		elseif state == self.ETAG then --> etag
+			if level == 1 then
+				return pos, state, posB
+			end
 			level = level - 1
 			pos, state = state(self, str, pos) --> text
 			
 		else --> ?
 			pos, state = state(self, str, pos) --> text
 		end
-	until level == 0
-	return pos, state, posB
+	end
 end
 
 -- Parsing state object
@@ -415,9 +417,10 @@ end
 
 -- Use at Attr
 -- Transition to Text
-function xmls:skipTag()
+function xmls:skipTag(stag)
 	self:assertState(self.ATTR, "skipTag")
-	return self:dostate(self.SKIPTAG)
+	self:dostate(self.SKIPTAG)
+	return self:assertEtag(stag)
 end
 
 -- Use at Attr
@@ -429,9 +432,10 @@ end
 
 -- Use at TagEnd
 -- Transition to Text
-function xmls:skipContent()
+function xmls:skipContent(stag)
 	self:assertState(self.TAGEND, "skipContent")
-	return self:dostate(self.SKIPCONTENT)
+	self:dostate(self.SKIPCONTENT)
+	return self:assertEtag(stag)
 end
 
 -- Manual extraction
@@ -493,44 +497,47 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML text and TagEnd's return value
-function xmls:getInnerXML()
+function xmls:getInnerXML(stag)
 	self:assertState(self.TAGEND, "getInnerXML")
-	local state, value = self() --> text
-	if value == true then
-		return self:stateValue(self.SKIPINNER), value --> text
+	local state, opening = self() --> text
+	if opening == true then
+		local value = self:stateValue(self.SKIPINNER) --> etag
+		self:assertEtag(stag) --> text
+		return value, opening
 	else
-		return "", value
+		return "", opening
 	end
 end
 
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner XML start and end positions and TagEnd's return value
-function xmls:getInnerPos()
+function xmls:getInnerPos(stag)
 	self:assertState(self.TAGEND, "getInnerPos")
-	local state, value = self() --> text
-	if value == true then
-		local a, b = self:statePos(self.SKIPINNER)
-		return a, b, value --> text
+	local state, opening = self() --> text
+	if opening == true then
+		local a, b = self:statePos(self.SKIPINNER) --> etag
+		self:assertEtag(stag) --> text
+		return a, b, opening
 	else
-		return self.pos, self.pos, value
+		return self.pos, self.pos, opening
 	end
 end
 
 -- Use at TagEnd
 -- Transition to Text
 -- Return inner text, start and end positions of content and TagEnd's return value
-function xmls:getInnerText()
+function xmls:getInnerText(stag)
 	self:assertState(self.TAGEND, "getInnerText")
 	local state, value = self() --> text
 	if value == true then
 		local posA, posB = self:statePos()
 		if self.state == self.ETAG then
-			self() --> text
+			self:assertEtag(stag) --> text
 			return self:cut(posA, posB), posA, posB, value
 		end
 		local rope = {self:cut(posA, posB)}
-		for level, text, pos, pos in self.getText, self, 1 do
+		for level, text, pos, pos in self.getTextGen(stag), self, 1 do
 			posB = pos
 			table.insert(rope, text)
 		end
@@ -607,57 +614,57 @@ end
 -- Use at TagEnd
 -- Return tag name, tag text content, whether it was an opening tag and tag position at Text
 -- Transition to Text
-function xmls:forSimple()
+function xmls:forSimple(stag)
 	self:assertState(self.TAGEND, "forSimple")
 	local state, value = self()
-	return value and self.getSimple or self.getNothing, self
+	return value and self.getSimple or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
 -- Return tag name, tag XML content, whether it was an opening tag and tag position at Text
 -- Transition to Text
-function xmls:forSimpleXML()
+function xmls:forSimpleXML(stag)
 	self:assertState(self.TAGEND, "forSimpleXML")
 	local state, value = self()
-	return value and self.getSimpleXML or self.getNothing, self
+	return value and self.getSimpleXML or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
 -- Return tag name, tag content start and end positions, whether it was an opening tag and tag position at Text
 -- Transition to Text
-function xmls:forSimplePos()
+function xmls:forSimplePos(stag)
 	self:assertState(self.TAGEND, "forSimplePos")
 	local state, value = self()
-	return value and self.getSimplePos or self.getNothing, self
+	return value and self.getSimplePos or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
 -- Return state at ?
 -- Bring to Text
 -- Transition to Text
-function xmls:forMarkup()
+function xmls:forMarkup(stag)
 	self:assertState(self.TAGEND, "forMarkup")
 	local state, value = self()
-	return value and self.getMarkup or self.getNothing, self
+	return value and self.getMarkup or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
 -- Return tag name and tag position at Attr
 -- Bring to Text
 -- Transition to Text
-function xmls:forTag()
+function xmls:forTag(stag)
 	self:assertState(self.TAGEND, "forTag")
 	local state, value = self()
-	return value and self.getTag or self.getNothing, self
+	return value and self.getTag or self.getNothing, self, stag
 end
 
 -- Use at TagEnd
 -- Return level, text and text start and end positions at ?
 -- Transition to Text
-function xmls:forText()
+function xmls:forText(stag)
 	self:assertState(self.TAGEND, "forText")
 	local state, value = self()
-	return value and self.getText or self.getNothing, self, 1
+	return value and self.getTextGen(stag) or self.getNothing, self, 1
 end
 
 -- Iterators
@@ -726,27 +733,25 @@ end
 -- Use at Text
 -- Transition to ? and return state, pos
 -- Transition to Text and return nil
-function xmls:getMarkup()
+function xmls:getMarkup(stag)
 	local state, pos = self() --> ?
 	if state ~= self.ETAG then
 		return state, pos
 	else
-		self() --> text
-		return nil
+		return self:assertEtag(stag) --> text
 	end
 end
 
 -- Use at Text
 -- Transition to Attr and return tag name and tag position
 -- Transition to Text and return nil
-function xmls:getTag()
+function xmls:getTag(stag)
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
 			return self:stateValue(), pos --> attr
 		elseif state == self.ETAG then
-			self() --> text
-			return nil
+			return self:assertEtag(stag) --> text
 		end
 	end
 end
@@ -754,7 +759,7 @@ end
 -- Use at Text
 -- Transition to Text and return tag name, tag text content, whether it was an opening tag and tag position
 -- Transition to Text and return nil
-function xmls:getSimple()
+function xmls:getSimple(stag)
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -763,8 +768,7 @@ function xmls:getSimple()
 			local value, opening = self:getInnerText()
 			return name, value, opening, pos --> text
 		elseif state == self.ETAG then
-			self() --> text
-			return nil
+			return self:assertEtag(stag) --> text
 		end
 	end
 end
@@ -772,7 +776,7 @@ end
 -- Use at Text
 -- Transition to Text and return tag name, tag XML content, whether it was an opening tag and tag position
 -- Transition to Text and return nil
-function xmls:getSimpleXML()
+function xmls:getSimpleXML(stag)
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -781,8 +785,7 @@ function xmls:getSimpleXML()
 			local value, opening = self:getInnerXML()
 			return name, value, opening, pos --> text
 		elseif state == self.ETAG then
-			self() --> text
-			return nil
+			return self:assertEtag(stag) --> text
 		end
 	end
 end
@@ -790,7 +793,7 @@ end
 -- Use at Text
 -- Transition to Text and return tag name, tag content starting and ending position, whether it was an opening tag and tag position
 -- Transition to Text and return nil
-function xmls:getSimplePos()
+function xmls:getSimplePos(stag)
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -799,8 +802,7 @@ function xmls:getSimplePos()
 			local a, b, opening = self:getInnerPos()
 			return name, a, b, opening, pos --> text
 		elseif state == self.ETAG then
-			self() --> text
-			return nil
+			return self:assertEtag(stag) --> text
 		end
 	end
 end
@@ -808,32 +810,34 @@ end
 -- Use at any state
 -- Transition to any state except Text and return level, text data and text start and end positions
 -- Transition to Text and return nil
-function xmls:getText(level)
-	local state = self.state
-	if state == self.STAG then
-		self:dostate(self.SKIPATTR) --> tagend
-		if select(2, self()) then --> text
-			level = level + 1
+function xmls.getTextGen(stag)
+	return function(level)
+		local state = self.state
+		if state == self.STAG then
+			self:dostate(self.SKIPATTR) --> tagend
+			if select(2, self()) then --> text
+				level = level + 1
+			end
+		elseif state == self.ETAG then
+			self:assertEtag(stag) --> text
+			if level == 1 then return end
+			level = level - 1
+		elseif state == self.ENTITY then
+			local posA, posB = self:statePos()
+			local entity = self.decodeEntity(self:cut(posA, posB))
+			if entity == nil then return self.error("Unrecognized entity", str, pos) end
+			return level, entity, posA, posB
+		elseif state == self.TEXT or state == self.CDATA then
+			-- good!
+		elseif state == self.EOF then
+			return
+		else
+			-- skip
+			self() --> text
 		end
-	elseif state == self.ETAG then
-		self()
-		if level == 1 then return end
-		level = level - 1
-	elseif state == self.ENTITY then
 		local posA, posB = self:statePos()
-		local entity = self.decodeEntity(self:cut(posA, posB))
-		if entity == nil then return self.error("Unrecognized entity", str, pos) end
-		return level, entity, posA, posB
-	elseif state == self.TEXT or state == self.CDATA then
-		-- good!
-	elseif state == self.EOF then
-		return
-	else
-		-- skip
-		self() --> text
+		return level, self:cut(posA, posB), posA, posB
 	end
-	local posA, posB = self:statePos()
-	return level, self:cut(posA, posB), posA, posB
 end
 
 -- Declarative parsing
@@ -844,7 +848,7 @@ xmls.DEFAULT = function() end
 
 -- Use at TagEnd
 -- Transition to Text
-function xmls:doTags(tree)
+function xmls:doTags(tree, stag)
 	self:assertState(self.TAGEND, "doTags")
 	if select(2, self()) == false then return end --> text
 	while true do
@@ -853,8 +857,7 @@ function xmls:doTags(tree)
 			local name = self:stateValue() --> attr
 			self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
 		elseif state == self.ETAG then
-			self() --> text
-			return
+			return self:assertEtag(stag) --> text
 		else -- Comment, PI
 			local action = tree[state]
 			if type(action) == "function" then
@@ -893,63 +896,10 @@ end
 -- Use at TagEnd
 -- Transition to Text
 -- A function can return true and leave content unconsumed to allow the search to continue
-function xmls:doDescendants(tree)
+function xmls:doDescendants(tree, stag)
 	self:assertState(self.TAGEND, "doDescendants")
 	self() --> text
-	local level = 1
-	repeat
-		local state, pos = self() --> ?
-		if state == self.STAG then
-			local name = self:stateValue() --> attr
-			local action = tree[name] or tree[self.DEFAULT]
-			local case = type(action)
-			
-			if case == "table" then
-				self:dostate(self.SKIPATTR) --> tagend
-				for name, pos in self:forTag() do
-					self:doSwitch(action[name], name, pos)
-				end --> text
-				-- consumed
-				
-			elseif case == "function" then
-				if action(self, name, pos) == true then --> tagend
-					-- not consumed
-					if select(2, self()) then --> text
-						level = level + 1
-					end
-				end
-				-- else --> text
-				
-			else
-				-- not consumed
-				self:dostate(self.SKIPATTR) --> tagend
-				if select(2, self()) then --> text
-					level = level + 1
-				end
-			end
-			
-		elseif state == self.ETAG then
-			level = level - 1
-			self() --> text
-			
-		else -- Comment, PI
-			local action = tree[state]
-			if type(action) == "function" then
-				action(state, pos)
-			else
-				self() --> text
-			end
-		end
-	until level == 0
-end
-
--- Use at Start
--- Transition to EOF
--- A function can return true and leave content unconsumed to allow the search to continue
-function xmls:doDescendantsRoot(tree)
-	self:assertState(self.TEXT, "doTags")
-	-- difference: requires TEXT and does not go from TAGEND to TEXT
-	-- difference: does not track level because it stops at EOF anyway
+	local stack = {stag}
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -959,7 +909,7 @@ function xmls:doDescendantsRoot(tree)
 			
 			if case == "table" then
 				self:dostate(self.SKIPATTR) --> tagend
-				for name, pos in self:forTag() do
+				for name, pos in self:forTag(name) do
 					self:doSwitch(action[name], name, pos)
 				end --> text
 				-- consumed
@@ -967,15 +917,76 @@ function xmls:doDescendantsRoot(tree)
 			elseif case == "function" then
 				if action(self, name, pos) == true then --> tagend
 					-- not consumed
-					self() --> text
+					if select(2, self()) then --> text
+						table.insert(stack, name)
+					end
 				end
 				-- else --> text
 				
 			else
 				-- not consumed
 				self:dostate(self.SKIPATTR) --> tagend
+				if select(2, self()) then --> text
+					table.insert(stack, name)
+				end
+			end
+			
+		elseif state == self.ETAG then
+			self:assertEtag(table.remove(stack)) --> text
+			if stack[1] == nil then return end
+			
+		else -- Comment, PI
+			local action = tree[state]
+			if type(action) == "function" then
+				action(state, pos)
+			else
 				self() --> text
 			end
+		end
+	end
+end
+
+-- Use at Start
+-- Transition to EOF
+-- A function can return true and leave content unconsumed to allow the search to continue
+function xmls:doDescendantsRoot(tree)
+	self:assertState(self.TEXT, "doTags")
+	-- difference: requires TEXT and does not go from TAGEND to TEXT
+	local stack = {level}
+	while true do
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
+			local action = tree[name] or tree[self.DEFAULT]
+			local case = type(action)
+			
+			if case == "table" then
+				self:dostate(self.SKIPATTR) --> tagend
+				for name, pos in self:forTag(name) do
+					self:doSwitch(action[name], name, pos)
+				end --> text
+				-- consumed
+				
+			elseif case == "function" then
+				if action(self, name, pos) == true then --> tagend
+					-- not consumed
+					if select(2, self()) then --> text
+						table.insert(stack, name)
+					end
+				end
+				-- else --> text
+				
+			else
+				-- not consumed
+				self:dostate(self.SKIPATTR) --> tagend
+				if select(2, self()) then --> text
+					table.insert(stack, name)
+				end
+			end
+			
+		elseif state == self.ETAG then
+			self:assertEtag(table.remove(stack)) --> text
+			-- difference: does not check stack for termination
 			
 		elseif state == self.EOF then
 			-- difference: checks for EOF and does not go to the next state
@@ -998,11 +1009,12 @@ function xmls:doSwitch(action, name, pos)
 	local case = type(action)
 	
 	if case == "nil" then
-		return self:dostate(self.SKIPTAG)
+		self:dostate(self.SKIPTAG) --> etag
+		return self:assertEtag(name) --> text
 		
 	elseif case == "table" then
 		self:dostate(self.SKIPATTR)
-		for name, pos in self:forTag() do
+		for name, pos in self:forTag(name) do
 			self:doSwitch(action[name], name, pos)
 		end
 		
@@ -1095,6 +1107,20 @@ end
 function xmls:assertState(state, name)
 	if self.state ~= state then
 		return self.error(string.format("%s called at %s instead of %s", name, self.names[self.state], self.names[state]), self.str, self.pos)
+	end
+end
+
+-- Use at ETag
+-- Transition to Text
+function xmls:assertEtag(stag)
+	if stag == nil then
+		self()
+	else
+		local pos = self.pos
+		local etag = self:stateValue()
+		if stag ~= etag then
+			self.error(string.format("Mismatched end tag: %s, %s", stag, etag), self.str, pos)
+		end
 	end
 end
 
