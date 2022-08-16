@@ -851,13 +851,13 @@ xmls.DEFAULT = function() end
 function xmls:doTags(tree, stag)
 	self:assertState(self.TAGEND, "doTags")
 	if select(2, self()) == false then return end --> text
-	self:doRoots(tree) --> etag
+	self:doTagsRoot(tree) --> etag
 	return self:assertEtag(stag) --> text
 end
 
 -- Use at Text
 -- Transition to Text or EOF
-function xmls:doRoots(tree)
+function xmls:doTagsRoot(tree)
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
