@@ -870,7 +870,7 @@ function xmls:doRoots(tree)
 		else -- Comment, PI
 			local action = tree[state]
 			if type(action) == "function" then
-				action(state, pos)
+				action(self, state, pos)
 			else
 				self() --> text
 			end
@@ -934,7 +934,7 @@ function xmls:doDescendantsRoot(tree)
 		else -- Comment, PI
 			local action = tree[state]
 			if type(action) == "function" then
-				action(state, pos)
+				action(self, state, pos)
 			else
 				self() --> text
 			end
