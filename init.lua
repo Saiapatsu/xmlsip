@@ -851,36 +851,21 @@ xmls.DEFAULT = function() end
 function xmls:doTags(tree, stag)
 	self:assertState(self.TAGEND, "doTags")
 	if select(2, self()) == false then return end --> text
+	self:doRoots(tree) --> etag
+	return self:assertEtag(stag) --> text
+end
+
+-- Use at Text
+-- Transition to Text or EOF
+function xmls:doRoots(tree)
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
 			local name = self:stateValue() --> attr
 			self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
 		elseif state == self.ETAG then
-			return self:assertEtag(stag) --> text
-		else -- Comment, PI
-			local action = tree[state]
-			if type(action) == "function" then
-				action(state, pos)
-			else
-				self() --> text
-			end
-		end
-	end
-end
-
--- Use at Start
--- Transition to EOF
-function xmls:doRoots(tree)
-	self:assertState(self.TEXT, "doRoots")
-	-- difference: requires TEXT and does not go from TAGEND to TEXT
-	while true do
-		local state, pos = self() --> ?
-		if state == self.STAG then
-			local name = self:stateValue() --> attr
-			self:doSwitch(tree[name] or tree[self.DEFAULT], name, pos)
+			return
 		elseif state == self.EOF then
-			-- difference: checks for EOF and does not go to the next state
 			return
 		else -- Comment, PI
 			local action = tree[state]
@@ -899,60 +884,15 @@ end
 function xmls:doDescendants(tree, stag)
 	self:assertState(self.TAGEND, "doDescendants")
 	self() --> text
-	local stack = {stag}
-	while true do
-		local state, pos = self() --> ?
-		if state == self.STAG then
-			local name = self:stateValue() --> attr
-			local action = tree[name] or tree[self.DEFAULT]
-			local case = type(action)
-			
-			if case == "table" then
-				self:dostate(self.SKIPATTR) --> tagend
-				for name, pos in self:forTag(name) do
-					self:doSwitch(action[name], name, pos)
-				end --> text
-				-- consumed
-				
-			elseif case == "function" then
-				if action(self, name, pos) == true then --> tagend
-					-- not consumed
-					if select(2, self()) then --> text
-						table.insert(stack, name)
-					end
-				end
-				-- else --> text
-				
-			else
-				-- not consumed
-				self:dostate(self.SKIPATTR) --> tagend
-				if select(2, self()) then --> text
-					table.insert(stack, name)
-				end
-			end
-			
-		elseif state == self.ETAG then
-			self:assertEtag(table.remove(stack)) --> text
-			if stack[1] == nil then return end
-			
-		else -- Comment, PI
-			local action = tree[state]
-			if type(action) == "function" then
-				action(state, pos)
-			else
-				self() --> text
-			end
-		end
-	end
+	self:doDescendantsRoot(tree) --> etag
+	return self:assertEtag(stag) --> text
 end
 
--- Use at Start
--- Transition to EOF
+-- Use at Text
+-- Transition to Text or EOF
 -- A function can return true and leave content unconsumed to allow the search to continue
 function xmls:doDescendantsRoot(tree)
-	self:assertState(self.TEXT, "doTags")
-	-- difference: requires TEXT and does not go from TAGEND to TEXT
-	local stack = {level}
+	local stack = {}
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -985,11 +925,10 @@ function xmls:doDescendantsRoot(tree)
 			end
 			
 		elseif state == self.ETAG then
+			if stack[1] == nil then return end
 			self:assertEtag(table.remove(stack)) --> text
-			-- difference: does not check stack for termination
 			
 		elseif state == self.EOF then
-			-- difference: checks for EOF and does not go to the next state
 			return
 			
 		else -- Comment, PI
