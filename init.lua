@@ -869,8 +869,8 @@ end
 -- Use at Start
 -- Transition to EOF
 function xmls:doRoots(tree)
-	-- difference: requires TEXT and does not go from TAGEND to TEXT
 	assert(self.state == self.TEXT)
+	-- difference: requires TEXT and does not go from TAGEND to TEXT
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -898,8 +898,9 @@ function xmls:doDescendants(tree)
 	self() --> text
 	local level = 1
 	repeat
-		local name, pos = self:getTag() --> attr
-		if name ~= nil then
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
 			local action = tree[name] or tree[self.DEFAULT]
 			local case = type(action)
 			
@@ -926,10 +927,69 @@ function xmls:doDescendants(tree)
 					level = level + 1
 				end
 			end
-		else
+			
+		elseif state == self.ETAG then
 			level = level - 1
+			self() --> text
+			
+		else -- Comment, PI
+			local action = tree[state]
+			if type(action) == "function" then
+				action(state, pos)
+			else
+				self() --> text
+			end
 		end
 	until level == 0
+end
+
+-- Use at Start
+-- Transition to EOF
+-- A function can return true and leave content unconsumed to allow the search to continue
+function xmls:doDescendantsRoot(tree)
+	assert(self.state == self.TEXT)
+	-- difference: requires TEXT and does not go from TAGEND to TEXT
+	-- difference: does not track level because it stops at EOF anyway
+	while true do
+		local state, pos = self() --> ?
+		if state == self.STAG then
+			local name = self:stateValue() --> attr
+			local action = tree[name] or tree[self.DEFAULT]
+			local case = type(action)
+			
+			if case == "table" then
+				self:dostate(self.SKIPATTR) --> tagend
+				for name, pos in self:forTag() do
+					self:doSwitch(action[name], name, pos)
+				end --> text
+				-- consumed
+				
+			elseif case == "function" then
+				if action(self, name, pos) == true then --> tagend
+					-- not consumed
+					self() --> text
+				end
+				-- else --> text
+				
+			else
+				-- not consumed
+				self:dostate(self.SKIPATTR) --> tagend
+				self() --> text
+			end
+			
+		elseif state == self.EOF then
+			-- difference: checks for EOF and does not go to the next state
+			return
+			
+		else -- Comment, PI
+			local action = tree[state]
+			if type(action) == "function" then
+				action(state, pos)
+			else
+				self() --> text
+			end
+		end
+	end
 end
 
 -- Use at Attr
