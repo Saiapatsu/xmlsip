@@ -172,13 +172,10 @@ end
 -- Transition to Value and return end of name
 -- Transition to TagEnd and return nil
 function xmls:ATTR(str, pos)
-	if str:match("^[^/>]()", pos) ~= nil then
-		if not str:match("^[ \t\r\n]", pos - 1) then
+	local posName, posQuote = str:match("^[:A-Z_a-z\x80-\xff][-.0-9:A-Z_a-z\x80-\xff]*()[ \t\r\n]*=[ \t\r\n]*()", pos)
+	if posName then
+		if not str:find("^[ \t\r\n]", pos - 1) then
 			return self.error("Attribute not separated by a space", str, pos)
-		end
-		local posName, posQuote = str:match("^[:A-Z_a-z\x80-\xff][-.0-9:A-Z_a-z\x80-\xff]*()[ \t\r\n]*=[ \t\r\n]*()", pos)
-		if posName == nil then
-			return self.error("Malformed attribute", str, pos)
 		end
 		local byte = str:byte(posQuote)
 		if byte == 34 then -- "
@@ -186,9 +183,10 @@ function xmls:ATTR(str, pos)
 		elseif byte == 39 then -- '
 			return posQuote + 1, self.VALUE1, posName
 		else
-			return self.error("Unquoted attribute value", str, pos)
+			return self.error("Unquoted attribute value", str, posQuote)
 		end
 	else
+		-- check for / or >
 		return pos, self.TAGEND, nil
 	end
 end
@@ -230,7 +228,6 @@ end
 -- Transition to Text
 -- Return true if opening tag, false if self-closing
 function xmls:TAGEND(str, pos)
-	-- warning: self.ATTR will transition to this if it runs into the end of file
 	-- c port?: return enum instead of bool
 	local byte = str:byte(pos)
 	if byte == 62 then -- >
@@ -240,7 +237,7 @@ function xmls:TAGEND(str, pos)
 			return pos + 2, self.TEXT, false
 		end
 	end
-	return self.error("Malformed tag end", str, pos)
+	return self.error("Malformed attribute", str, pos)
 end
 
 -- End of file
