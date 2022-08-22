@@ -340,11 +340,11 @@ function xmls:SKIPINNER(str, pos)
 			end
 			
 		elseif state == self.ETAG then --> etag
+			pos, state = state(self, str, pos) --> text
 			if level == 1 then
 				return pos, state, posB
 			end
 			level = level - 1
-			pos, state = state(self, str, pos) --> text
 			
 		else --> ?
 			pos, state = state(self, str, pos) --> text
@@ -871,6 +871,7 @@ function xmls:doDescendants(tree)
 	if select(2, self()) then --> text
 		self:doDescendantsRoot(tree) --> etag
 	end
+	self() --> text
 end
 
 -- Use at Text
@@ -911,8 +912,8 @@ function xmls:doDescendantsRoot(tree)
 			end
 			
 		elseif state == self.ETAG then
-			if stack[1] == nil then return end
 			table.remove(stack)
+			if stack[1] == nil then return end
 			
 		elseif state == self.EOF then
 			return
