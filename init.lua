@@ -30,7 +30,7 @@ local utf8char = utf8.char
 
 -- Plain text
 -- Use after ">", after ";" or at beginning of document
--- Transition to Entity, STag, ETag, CDATA, Comment, PI, MalformedTag or EOF
+-- Transition to Entity, STag, ETag, CDATA, Comment, PI or EOF
 -- Return end of text
 function xmls:TEXT(str, pos)
 	local pos0 = str:match("[^<&]*()", pos)
@@ -52,7 +52,7 @@ function xmls:TEXT(str, pos)
 		if str:find("^[:A-Z_a-z\x80-\xff]", pos) ~= nil then -- </tag
 			return pos, self.ETAG, pos0
 		else -- </>
-			return pos - 1, self.MALFORMED, pos0
+			return self.error("Invalid tag name", str, pos)
 		end
 		
 	elseif byte == 33 then -- <!
@@ -62,7 +62,7 @@ function xmls:TEXT(str, pos)
 		elseif str:sub(pos, pos + 6) == "[CDATA[" then -- <![CDATA[
 			return pos + 7, self.CDATA, pos0
 		else -- <!asdf
-			return pos - 1, self.MALFORMED, pos0
+			return self.error("Unrecognized exclamation point tag", str, pos)
 		end
 		
 	elseif byte == 63 then -- <?
@@ -72,7 +72,7 @@ function xmls:TEXT(str, pos)
 		return pos - 1, self.EOF, pos0
 		
 	else -- <\
-		return pos, self.MALFORMED, pos0
+		return self.error("Invalid tag name", str, pos)
 	end
 end
 
@@ -165,15 +165,6 @@ function xmls:PI(str, pos)
 		-- pos = #str
 		-- return pos, self.TEXT, pos
 	end
-end
-
--- Content of an obviously malformed tag
--- Use after "<"
--- Transition to Text
--- Return nil
-function xmls:MALFORMED(str, pos)
-	-- zip to after >
-	return self.error("Malformed tag", str, pos)
 end
 
 -- Attribute name or end of tag (end of attribute list).
