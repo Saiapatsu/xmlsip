@@ -875,11 +875,10 @@ function xmls:doDescendants(tree)
 end
 
 -- Use at Text
--- Transition to Text or EOF
+-- Transition to ETag or EOF
 -- A function can return true and leave content unconsumed to allow the search to continue
 function xmls:doDescendantsRoot(tree)
 	local stack = {}
-	-- difference: requires TEXT and does not go from TAGEND to TEXT
 	while true do
 		local state, pos = self() --> ?
 		if state == self.STAG then
@@ -912,8 +911,9 @@ function xmls:doDescendantsRoot(tree)
 			end
 			
 		elseif state == self.ETAG then
-			table.remove(stack)
 			if stack[1] == nil then return end
+			table.remove(stack)
+			self() --> text
 			
 		elseif state == self.EOF then
 			return
