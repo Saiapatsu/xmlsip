@@ -888,9 +888,7 @@ function xmls:doDescendantsRoot(tree)
 			
 			if case == "table" then
 				self:dostate(self.SKIPATTR) --> tagend
-				for name, pos in self:forTag() do
-					self:doSwitch(action[name], name, pos)
-				end --> text
+				return self:switchTags(action) --> text
 				-- consumed
 				
 			elseif case == "function" then
@@ -921,7 +919,7 @@ function xmls:doDescendantsRoot(tree)
 		else -- Comment, PI
 			local action = tree[state]
 			if type(action) == "function" then
-				action(self, state, pos)
+				action(self, state, pos) --> text
 			else
 				self() --> text
 			end
@@ -938,13 +936,39 @@ function xmls:doSwitch(action, name, pos)
 		return self:dostate(self.SKIPTAG) --> text
 		
 	elseif case == "table" then
-		self:dostate(self.SKIPATTR)
-		for name, pos in self:forTag() do
-			self:doSwitch(action[name], name, pos)
-		end
+		self:dostate(self.SKIPATTR) --> tagend
+		return self:switchTags(action) --> text
 		
 	elseif case == "function" then
-		return action(self, name, pos)
+		return action(self, name, pos) --> text
+	end
+end
+
+-- Use at TagEnd
+-- Transition to Outer
+function xmls:switchTags(action)
+	local state, opening = self()
+	if not opening then return end
+	
+	while true do
+		local state, pos = self() --> ?
+		
+		if state == self.STAG then
+			local name = self:stateValue()
+			self:doSwitch(action[name], name, pos) --> outer
+			
+		elseif state == self.ETAG then
+			self() --> outer
+			return
+			
+		else -- Comment, PI
+			local action = action[state]
+			if type(action) == "function" then
+				action(self, state, pos) --> text
+			else
+				self() --> text
+			end
+		end
 	end
 end
 
