@@ -119,10 +119,10 @@ PI
 EOF
 ```
 
-In addition, `INNER` and `OUTER` in documentation refer to `TEXT` after `TAGEND` and `TEXT` after `ETAG` respectively.  
-These states do not actually exist in the code.
+It's also useful to think of `TEXT` after an opening `TAGEND` and `TEXT` after `ETAG` as special `INNER` and `OUTER` states respectively.  
+These states do not actually exist in the code, but methods are often meant to be used just within a tag or just after a tag ends.
 
-`TEXT` might be referred to as `PCDATA` (plain character data) elsewhere, but this library was made with minimal reference to the spec.
+`TEXT` might be referred to as `PCDATA` (plain character data) elsewhere, but this library was created without knowing this.
 
 The state output of the tokenizer conforms to this shape:
 ```
