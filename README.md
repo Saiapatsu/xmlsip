@@ -10,7 +10,7 @@ Its goals are:
 - to be fast and create no more tables or functions than necessary.
 
 To start using xmlsip, wrap your string in a tokenizer state object and use its myriad methods to parse the XML document.
-Consult the tests in the source code for common usage patterns.
+Consult (the host project)[https://github.com/Saiapatsu/tile-rearranger] for common usage patterns.
 
 ```lua
 local xmlsip = require "xmlsip"
