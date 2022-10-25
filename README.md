@@ -5,12 +5,12 @@
 Its goals are:
 - to support the projects it was created for;
 - to extract and modify data without losing whitespace/formatting;
-- to challenge me to implement what I liked about (Hexml)[http://neilmitchell.blogspot.com/2016/12/new-xml-parser-hexml.html] and (pugixml)[http://www.aosabook.org/en/posa/parsing-xml-at-the-speed-of-light.html];
-- to be like (jsonsip)[https://github.com/Saiapatsu/jsons], but for XML instead of JSON;
+- to challenge me to implement what I liked about [Hexml](http://neilmitchell.blogspot.com/2016/12/new-xml-parser-hexml.html) and [pugixml](http://www.aosabook.org/en/posa/parsing-xml-at-the-speed-of-light.html);
+- to be like [jsonsip](https://github.com/Saiapatsu/jsons), but for XML instead of JSON;
 - to be fast and create no more tables or functions than necessary.
 
 To start using xmlsip, wrap your string in a tokenizer state object and use its myriad methods to parse the XML document.
-Consult (the host project)[https://github.com/Saiapatsu/tile-rearranger] for common usage patterns.
+Consult [the host project](https://github.com/Saiapatsu/tile-rearranger) for common usage patterns.
 
 ```lua
 local xmlsip = require "xmlsip"
