@@ -54,7 +54,9 @@ The state object can be extended and patched simply by adding functions of the s
 
 ## Notes
 
-Closely following the standards is not one of xmlsip's goals.
+xmlsip is poorly documented and not really intended to be used by anyone else.
+
+Closely following the standard is not one of xmlsip's goals.
 
 xmlsip throws errors when given badly-formed data.
 
@@ -70,11 +72,13 @@ xmlsip pays attention to entities. Parsing utilities tend to have entity/CDATA-r
 
 xmlsip tokenizes processing instructions just fine, but nothing in this library pays attention to them.
 
-xmlsip does not verify whether an end tag matches the start tag.  
-It is possible to modify xmlsip to do so with few architectural changes. There has been a failed attempt to do so.
+xmlsip's higher-level functions do not verify whether an end tag matches the start tag, nor do they expose the end tags to the user for manual checking.  
+It is possible to modify xmlsip to do so with few architectural changes. There has been one failed and rolled-back attempt to do so. It involved adding to most function signatures the name of the start tag to check the end tag against.
 
-xmlsip currently has no facilities to write XML nodes.  
-It does, however, have a helper to replace arbitrary sections or contents of a node in an XML file.
+xmlsip currently has no facilities to write XML.  
+It does, however, offer a helper to splice/replace sections of a string, which is what the copious amounts of position return values are for.
+
+xmlsip does not count newlines, so position -> line:position conversion is done by a separate function that goes over the input string a second time or more.
 
 The user is responsible for using xmlsip's methods at the correct state. There are a few asserts for the correct state strewn about, but it's still incredibly easy to mess up.
 
