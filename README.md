@@ -1,5 +1,7 @@
 # xmlsip
 
+## Caution: this library is very frustrating and failed on the last thing I tried to use it for, steer clear of it
+
 **xmlsip** is an XML tokenizer in Lua and an army of functions to pull-parse its output.
 
 Its goals are:
